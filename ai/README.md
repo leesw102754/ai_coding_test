@@ -109,7 +109,7 @@ http://127.0.0.1:8000/docs
 
 ```text
 OPENAI_API_KEY=여기에_API_KEY
-AI_INTERNAL_KEY=capstone-secret-key
+AI_INTERNAL_KEY=1234
 ```
 
 주의:
