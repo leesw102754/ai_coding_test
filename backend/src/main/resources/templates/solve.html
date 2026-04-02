@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>시험 응시</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="container mt-5">
+<h2 th:text="${exam.title}">시험 제목</h2>
+<div class="card mb-4">
+  <div class="card-body">
+    <p th:text="${exam.description}">여기에 문제 설명이 나옵니다.</p>
+  </div>
+</div>
+
+<form action="/exams/submit" method="post">
+  <input type="hidden" name="examId" th:value="${exam.id}">
+
+  <div class="mb-3">
+    <label class="form-label">학번/이름</label>
+    <input type="text" name="studentName" class="form-control" required>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">답안 코드 작성!</label>
+    <textarea id="codeEditor" name="code" class="form-control" rows="15"
+              style="font-family: 'Courier New', Courier, monospace;"
+              placeholder="여기에 코드를 입력하세요..."></textarea>
+  </div>
+
+  <script>
+    const textarea = document.getElementById('codeEditor');
+
+    textarea.addEventListener('keydown', function(e) {
+      if (e.key === 'Tab') {
+        // 1. Tab 키의 기본 동작(다음 요소 이동)을 막습니다.
+        e.preventDefault();
+
+        // 2. 현재 커서의 위치를 찾습니다.
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+
+        // 3. 커서 위치에 탭(공백 4칸 또는 \t)을 삽입합니다.
+        this.value = this.value.substring(0, start) +
+                "    " + // 공백 4칸을 넣거나 "\t"를 넣으세요.
+                this.value.substring(end);
+
+        // 4. 커서의 위치를 탭 뒤로 이동시킵니다.
+        this.selectionStart = this.selectionEnd = start + 4;
+      }
+    });
+  </script>
+
+  <button type="submit" class="btn btn-primary w-100">답안 제출하기</button>
+</form>
+</body>
+</html>

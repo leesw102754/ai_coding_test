@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head><title>시험 목록</title></head>
+<body>
+<h1>현재 등록된 시험 목록</h1>
+<ul>
+  <li th:each="exam : ${exams}">
+    <strong th:text="${exam.title}">제목</strong>:
+    <span th:text="${exam.description}">내용</span>
+  </li>
+</ul>
+<a href="/admin">새 문제 등록하러 가기</a>
+</body>
+</html>
