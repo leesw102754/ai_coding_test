@@ -1,0 +1,219 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useProblem } from '../context/ProblemContext';
+import './HomePage.css';
+
+const difficultyLabel = { easy: '쉬움', medium: '보통', hard: '어려움' };
+const difficultyClass = { easy: 'tag-easy', medium: 'tag-medium', hard: 'tag-hard' };
+
+export default function HomePage() {
+  const navigate = useNavigate();
+  const { problems, stats } = useProblem();
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+
+  const filtered = problems.filter(p => {
+    const matchSearch =
+      p.title.toLowerCase().includes(search.toLowerCase()) ||
+      p.tags.some(t => t.toLowerCase().includes(search.toLowerCase()));
+    const matchFilter =
+      filter === 'all' ||
+      (filter === 'easy' && p.difficulty === 'easy') ||
+      (filter === 'medium' && p.difficulty === 'medium') ||
+      (filter === 'hard' && p.difficulty === 'hard') ||
+      (filter === 'solved' && p.solved) ||
+      (filter === 'unsolved' && !p.solved);
+    return matchSearch && matchFilter;
+  });
+
+  return (
+    <div className="home-page">
+      {/* Hero Section */}
+      <section className="hero">
+        <div className="hero-content">
+          <div className="hero-network">
+            <svg className="network-svg" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid slice">
+              <defs>
+                <radialGradient id="nodeGlow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="var(--accent-blue)" stopOpacity="0.6"/>
+                  <stop offset="100%" stopColor="var(--accent-blue)" stopOpacity="0"/>
+                </radialGradient>
+              </defs>
+              {[
+                [100, 80], [200, 40], [320, 100], [450, 60], [560, 120], [680, 50], [750, 90],
+                [150, 150], [280, 160], [400, 140], [520, 170], [640, 140]
+              ].map(([x, y], i) => (
+                <g key={i}>
+                  <circle cx={x} cy={y} r="18" fill="url(#nodeGlow)" />
+                  <circle cx={x} cy={y} r="5" fill="var(--accent-blue)" opacity="0.7" />
+                </g>
+              ))}
+              {[
+                [100,80,200,40],[200,40,320,100],[320,100,450,60],[450,60,560,120],
+                [560,120,680,50],[680,50,750,90],[100,80,150,150],[200,40,280,160],
+                [320,100,280,160],[450,60,400,140],[560,120,520,170],[680,50,640,140],
+                [280,160,400,140],[400,140,520,170],[520,170,640,140]
+              ].map(([x1,y1,x2,y2], i) => (
+                <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke="var(--accent-blue)" strokeOpacity="0.2" strokeWidth="1" />
+              ))}
+            </svg>
+          </div>
+          <h1 className="hero-title">코딩테스트 플랫폼</h1>
+          <p className="hero-subtitle">팀 내부 코딩테스트 · 알고리즘 역량 평가</p>
+        </div>
+      </section>
+
+      {/* Main Content */}
+      <div className="main-layout">
+        {/* Sidebar */}
+        <aside className="sidebar">
+          <div className="sidebar-section">
+            <h3 className="sidebar-heading">진행 현황</h3>
+            <div className="progress-item">
+              <span className="progress-label">해결한 문제</span>
+              <span className="progress-value">
+                <span className="progress-solved">{stats.solved}</span>
+                <span className="progress-sep"> / </span>
+                <span>{stats.total}</span>
+              </span>
+            </div>
+            <div className="progress-bar-wrap">
+              <div
+                className="progress-bar-fill"
+                style={{ width: `${stats.total > 0 ? (stats.solved / stats.total) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="sidebar-section">
+            <h3 className="sidebar-heading">난이도별</h3>
+            <div className="diff-list">
+              <div className="diff-item" onClick={() => setFilter('easy')}>
+                <span className="diff-dot dot-easy" />
+                <span className="diff-name">쉬움</span>
+                <span className="diff-count">{stats.easy}</span>
+              </div>
+              <div className="diff-item" onClick={() => setFilter('medium')}>
+                <span className="diff-dot dot-medium" />
+                <span className="diff-name">보통</span>
+                <span className="diff-count">{stats.medium}</span>
+              </div>
+              <div className="diff-item" onClick={() => setFilter('hard')}>
+                <span className="diff-dot dot-hard" />
+                <span className="diff-name">어려움</span>
+                <span className="diff-count">{stats.hard}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="sidebar-section">
+            <h3 className="sidebar-heading">통계</h3>
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon">🏆</div>
+                <div className="stat-value">{stats.solved}</div>
+                <div className="stat-label">정답</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">📊</div>
+                <div className="stat-value">{stats.total}</div>
+                <div className="stat-label">전체</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">⚡</div>
+                <div className="stat-value">
+                  {stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0}%
+                </div>
+                <div className="stat-label">정답률</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">🔥</div>
+                <div className="stat-value">{stats.total - stats.solved}</div>
+                <div className="stat-label">미해결</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Problem List */}
+        <main className="problem-area">
+          {/* Search & Filter */}
+          <div className="problem-toolbar">
+            <div className="search-box">
+              <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input
+                type="text"
+                placeholder="문제 검색..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="search-input"
+              />
+            </div>
+
+            <div className="filter-group">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{color:'var(--text-muted)'}}>
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+              </svg>
+              {['all', 'easy', 'medium', 'hard'].map(f => (
+                <button
+                  key={f}
+                  className={`filter-btn ${filter === f ? 'active' : ''}`}
+                  onClick={() => setFilter(f)}
+                >
+                  {f === 'all' ? '전체' : f === 'easy' ? '쉬움' : f === 'medium' ? '보통' : '어려움'}
+                </button>
+              ))}
+            </div>
+
+            <span className="problem-count">{filtered.length}개 문제</span>
+          </div>
+
+          {/* Problem Items */}
+          <div className="problem-list">
+            {filtered.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">🔍</div>
+                <p>검색 결과가 없습니다.</p>
+              </div>
+            ) : (
+              filtered.map(problem => (
+                <div
+                  key={problem.id}
+                  className={`problem-item ${problem.solved ? 'solved' : ''}`}
+                  onClick={() => navigate(`/problem/${problem.id}`)}
+                >
+                  <div className="problem-left">
+                    <div className={`solve-indicator ${problem.solved ? 'solved' : ''}`}>
+                      {problem.solved ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      ) : null}
+                    </div>
+                    <span className="problem-number">{problem.number}</span>
+                    <span className="problem-title">{problem.title}</span>
+                  </div>
+                  <div className="problem-right">
+                    <div className="problem-tags">
+                      {problem.tags.map(tag => (
+                        <span key={tag} className="tag">{tag}</span>
+                      ))}
+                    </div>
+                    <span className={`difficulty-badge ${difficultyClass[problem.difficulty]}`}>
+                      {difficultyLabel[problem.difficulty]}
+                    </span>
+                    <span className="time-limit">{problem.timeLimit}ms</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
