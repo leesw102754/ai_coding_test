@@ -12,8 +12,17 @@ gradlew.bat :backend:bootRun
 
 확인 : 
 http://localhost:8080/api/exams
+http://localhost:8080/h2-console
 
-3. 테스트 (Postman)
+3. Frontend
+cd C:\Users\leesw\capston-ai\frontend
+npm install
+npm start
+
+확인 : 
+http://localhost:3000
+
+4. 테스트 (Postman)
 
 POST
 시험 등록
@@ -28,7 +37,7 @@ http://localhost:8080/api/submissions
   "title": "두 수의 합",
   "description": "두 수를 입력받아 합을 출력하시오."
 }  
--> id 2
+
 2. 테스트케이스 등록 1
 {
   "examId": 1,
