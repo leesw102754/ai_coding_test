@@ -1,0 +1,16 @@
+{
+  "problem_title": "배열 인덱스 문제",
+  "problem_description": "배열에서 특정 인덱스 값을 출력하시오.",
+  "language": "python",
+  "student_code": "arr = [1, 2]\nprint(arr[3])",
+  "test_result": "fail",
+  "failed_cases": [
+    {
+      "input": "[1, 2]",
+      "expected_output": "3",
+      "actual_output": "IndexError",
+      "reason": "배열 길이를 초과한 인덱스 접근"
+    }
+  ],
+  "judge_message": "테스트케이스 실패"
+}

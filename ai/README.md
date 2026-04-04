@@ -6,21 +6,23 @@
 
 AI 기반 코드 오류 분석 시스템입니다.
 
-학생이 제출한 코드를 분석하여
+학생이 제출한 코드를 분석하여  
 오류 유형을 분류하고, 오류 원인 / 해결 방향 / 개선 피드백을 제공합니다.
 
-👉 본 시스템은 **단독 실행용이 아닌, 백엔드 채점 시스템과 연동하여 사용됩니다.**
+👉 본 시스템은 **백엔드 채점 시스템과 연동하여 사용됩니다.**
 
 ---
 
 ## 2. 🚀 주요 기능
 
-* 코드 오류 유형 분류
-  (logic_error / index_error / runtime_error)
+* 코드 오류 유형 분류  
+  (accepted / logic_error / runtime_error / index_error / compile_error)
 * 오류 원인 분석
 * 해결 방향 제시
 * 코드 개선 피드백 제공
 * JSON 형태 결과 반환
+* **다중 언어 지원 (Python, C++, Java)**
+* **bulk 제출 지원 (여러 문제 한 번에 처리)**
 
 ※ 정답 코드를 제공하지 않고 **오류 분석 중심**으로 동작합니다.
 
@@ -144,17 +146,17 @@ x-api-key: 1234
 
 ```json
 {
-  "problem_title": "평균 이상",
-  "problem_description": "평균 이상 데이터 조회",
-  "language": "sql",
-  "student_code": "SELECT * FROM scores WHERE score > (SELECT AVG(score) FROM scores);",
+  "problem_title": "두 수의 합",
+  "problem_description": "두 정수를 입력받아 합을 출력",
+  "language": "cpp",
+  "student_code": "int main(){...}",
   "test_result": "Wrong Answer",
   "failed_cases": [
     {
-      "input": "",
-      "expected_output": "평균 이상 포함",
-      "actual_output": "평균 제외",
-      "reason": ">= 대신 > 사용"
+      "input": "1 2",
+      "expected_output": "3",
+      "actual_output": "-1",
+      "reason": "덧셈 대신 뺄셈 사용"
     }
   ],
   "judge_message": "논리 오류"
@@ -168,10 +170,10 @@ x-api-key: 1234
 ```json
 {
   "error_type": "logic_error",
-  "summary": "평균 이상이 아니라 평균 초과 데이터만 조회함",
-  "wrong_reason": ">= 대신 > 사용",
-  "solution_direction": ">= 사용으로 수정 필요",
-  "improvement_feedback": "조건 표현 정확히 확인 필요"
+  "summary": "덧셈이 아닌 뺄셈을 수행함",
+  "wrong_reason": "연산자 오류",
+  "solution_direction": "a + b로 수정 필요",
+  "improvement_feedback": "연산자 확인 습관 필요"
 }
 ```
 
@@ -183,12 +185,24 @@ x-api-key: 1234
 
 ```
 학생 제출
-→ 백엔드 채점
+→ 백엔드 채점 (Python / C++ / Java)
 → 오답 발생
 → failed_cases 생성
 → AI API 호출
 → JSON 피드백 반환
 → DB 저장 / 결과 출력
+```
+
+---
+
+### 📍 bulk 제출 흐름
+
+```
+여러 문제 제출
+→ 백엔드에서 각각 채점
+→ 결과 분리 (accepted / error)
+→ 오답만 AI 분석
+→ 결과 리스트 반환
 ```
 
 ---
@@ -207,6 +221,7 @@ test_result != "Accepted"
 Accepted
 Wrong Answer
 Runtime Error
+Compile Error
 ```
 
 ---
@@ -215,13 +230,23 @@ Runtime Error
 
 | 필드                  | 필수 |
 | ------------------- | -- |
-| problem_title       | ✅  |
-| problem_description | ✅  |
-| language            | ✅  |
-| student_code        | ✅  |
-| test_result         | ✅  |
-| failed_cases        | ✅  |
+| problem_title       | ✅ |
+| problem_description | ✅ |
+| language            | ✅ |
+| student_code        | ✅ |
+| test_result         | ✅ |
+| failed_cases        | ✅ |
 | judge_message       | 선택 |
+
+---
+
+### 📍 지원 언어
+
+```
+Python
+C++
+Java
+```
 
 ---
 
@@ -338,6 +363,7 @@ python -m pip install -r requirements.txt
 
 ```
 백엔드 → 채점 → 오답 발생 → AI 호출 → JSON 피드백 반환 → 저장 및 출력
+(다중 언어 + bulk 제출 지원)
 ```
 
 ---

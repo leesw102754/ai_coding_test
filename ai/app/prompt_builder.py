@@ -24,7 +24,9 @@ def build_analysis_prompt(data: AnalyzeCodeRequest, error_type: str) -> str:
 
 역할:
 - 학생 제출 코드를 분석합니다.
-- judge_result를 우선 근거로 사용합니다.
+- judge_result와 실패 케이스를 가장 중요한 근거로 사용합니다.
+- 문제 설명보다 테스트 케이스 결과를 우선적으로 신뢰합니다.
+- wrong_reason은 반드시 실패 케이스의 입력/출력 차이를 기반으로 설명하세요.
 - 오류 유형(error_type)은 이미 1차 판정되었습니다.
 - 당신은 오류 유형을 다시 추측하기보다, 그 근거를 바탕으로 설명을 작성합니다.
 - 정답 전체 코드는 절대 제공하지 않습니다.
