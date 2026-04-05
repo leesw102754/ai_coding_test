@@ -1,0 +1,148 @@
+4. 테스트 (Postman)
+
+POST
+시험 등록
+http://localhost:8080/api/exams
+테스트 케이스 등록
+http://localhost:8080/api/testcases
+코드 제출 테스트
+http://localhost:8080/api/submissions
+http://localhost:8080/api/submissions/bulk
+----------------------------------------------
+한번에 하나씩
+
+1. 문제 생성
+{
+  "title": "두 수의 합",
+  "description": "두 정수 a와 b를 입력받아 합을 출력하시오."
+}
+
+예를 들어 응답으로 id: 2가 나왔다고 하면,
+이 뒤부터는 전부 **examId: 2**로 맞춰야 한다.
+
+2. 테스트케이스 등록 1
+{
+  "examId": 2,
+  "input": "1 2\n",
+  "expectedOutput": "3"
+}
+
+3. 테스트케이스 등록 2
+{
+  "examId": 2,
+  "input": "10 20\n",
+  "expectedOutput": "30"
+}
+
+--------------------------------------------------------------------
+한번에 여려개
+
+👉 각 문제마다 최소 1~2개씩 넣어야 함
+
+bulk 테스트
+
+python
+{
+  "studentId": "20260001",
+  "studentName": "test",
+  "submissions": [
+    { "examId": 2, "language": "python", "code": "print(sum(map(int,input().split())))" },
+    { "examId": 2, "language": "python", "code": "print(1-1)" },
+    { "examId": 2, "language": "python", "code": "print(1/0)" },
+    { "examId": 2, "language": "python", "code": "arr=[1,2]\nprint(arr[3])" },
+    { "examId": 2, "language": "python", "code": "print('hello')" }
+  ]
+}
+
+--------------------------------------------------------------------------------------------------------
+c++
+{
+  "studentId": "20260001",
+  "studentName": "test",
+  "submissions": [
+    {
+      "examId": 2,
+      "language": "cpp",
+      "code": "#include <iostream>\nusing namespace std;\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << a + b;\n    return 0;\n}"
+    },
+    {
+      "examId": 2,
+      "language": "cpp",
+      "code": "#include <iostream>\nusing namespace std;\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << a - b;\n    return 0;\n}"
+    },
+    {
+      "examId": 2,
+      "language": "cpp",
+      "code": "#include <iostream>\nusing namespace std;\nint main() {\n    int a = 0;\n    cout << 10 / a;\n    return 0;\n}"
+    },
+    {
+      "examId": 2,
+      "language": "cpp",
+      "code": "#include <iostream>\n#include <vector>\nusing namespace std;\nint main() {\n    vector<int> v = {1, 2};\n    cout << v.at(3);\n    return 0;\n}"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------------------------------
+java
+{
+  "studentId": "20260001",
+  "studentName": "test_java",
+  "submissions": [
+    {
+      "examId": 2,
+      "language": "java",
+      "code": "import java.util.*;\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        int a = sc.nextInt();\n        int b = sc.nextInt();\n        System.out.print(a + b);\n    }\n}"
+    },
+    {
+      "examId": 2,
+      "language": "java",
+      "code": "import java.util.*;\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        int a = sc.nextInt();\n        int b = sc.nextInt();\n        System.out.print(a - b);\n    }\n}"
+    },
+    {
+      "examId": 2,
+      "language": "java",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        int a = 0;\n        System.out.print(10 / a);\n    }\n}"
+    },
+    {
+      "examId": 2,
+      "language": "java",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        int[] arr = {1, 2};\n        System.out.print(arr[3]);\n    }\n}"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------------------------------
+C
+
+{
+  "studentId": "20260001",
+  "studentName": "test_c",
+  "submissions": [
+    {
+      "examId": 2,
+      "language": "c",
+      "code": "#include <stdio.h>\nint main() {\n    int a, b;\n    scanf(\"%d %d\", &a, &b);\n    printf(\"%d\", a + b);\n    return 0;\n}"
+    },
+    {
+      "examId": 2,
+      "language": "c",
+      "code": "#include <stdio.h>\nint main() {\n    int a, b;\n    scanf(\"%d %d\", &a, &b);\n    printf(\"%d\", a - b);\n    return 0;\n}"
+    },
+    {
+      "examId": 2,
+      "language": "c",
+      "code": "#include <stdio.h>\nint main() {\n    int a = 0;\n    printf(\"%d\", 10 / a);\n    return 0;\n}"
+    },
+    {
+      "examId": 2,
+      "language": "c",
+      "code": "#include <stdio.h>\nint main() {\n    printf(\"hello\")\n    return 0;\n}"
+    },
+    {
+      "examId": 2,
+      "language": "c",
+      "code": "#include <stdio.h>\nint main() {\n    printf(\"hello\");\n    return 0;\n}"
+    }
+  ]
+}

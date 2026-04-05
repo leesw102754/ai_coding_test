@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
-public class CppJudgeService {
+public class CJudgeService {
 
     public JudgeResult judge(String code, List<TestCase> testCases) {
         JudgeResult result = new JudgeResult();
@@ -28,8 +28,8 @@ public class CppJudgeService {
         Path exeFile = null;
 
         try {
-            tempDir = Files.createTempDirectory("cpp_submission_");
-            sourceFile = tempDir.resolve("Main.cpp");
+            tempDir = Files.createTempDirectory("c_submission_");
+            sourceFile = tempDir.resolve("Main.c");
 
             boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
             exeFile = isWindows ? tempDir.resolve("Main.exe") : tempDir.resolve("Main");
@@ -37,9 +37,8 @@ public class CppJudgeService {
             Files.writeString(sourceFile, code, StandardCharsets.UTF_8);
 
             ProcessBuilder compilePb = new ProcessBuilder(
-                    "g++",
+                    "gcc",
                     sourceFile.toString(),
-                    "-std=c++17",
                     "-O2",
                     "-o",
                     exeFile.toString()
@@ -62,7 +61,7 @@ public class CppJudgeService {
                 failedCase.setInput("");
                 failedCase.setExpectedOutput("");
                 failedCase.setActualOutput("");
-                failedCase.setReason("C++ 컴파일 오류");
+                failedCase.setReason("C 컴파일 오류");
 
                 failedCases.add(failedCase);
                 result.setFailedCases(failedCases);
@@ -95,15 +94,8 @@ public class CppJudgeService {
 
                 if (exitCode != 0) {
                     result.setStatus("runtime_error");
-
-                    String lowerErr = stderr.toLowerCase();
-                    if (lowerErr.contains("out_of_range")) {
-                        result.setErrorTypeHint("index_error");
-                        failedCase.setReason("배열 또는 벡터 인덱스 범위를 벗어남");
-                    } else {
-                        result.setErrorTypeHint("runtime_error");
-                        failedCase.setReason("실행 중 오류 발생");
-                    }
+                    result.setErrorTypeHint("runtime_error");
+                    failedCase.setReason("실행 중 오류 발생");
 
                     failedCases.add(failedCase);
                     result.setFailedCases(failedCases);
@@ -140,7 +132,7 @@ public class CppJudgeService {
             failedCase.setInput("");
             failedCase.setExpectedOutput("");
             failedCase.setActualOutput("");
-            failedCase.setReason("C++ 실행 자체 실패");
+            failedCase.setReason("C 실행 자체 실패");
 
             result.setStatus("runtime_error");
             result.setErrorTypeHint("runtime_error");

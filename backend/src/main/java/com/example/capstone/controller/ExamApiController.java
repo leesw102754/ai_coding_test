@@ -15,6 +15,7 @@ import com.example.capstone.repository.TestCaseRepository;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -136,12 +137,22 @@ public Map<String, Object> submitBulkCode(@RequestBody BulkSubmissionRequest req
         results.add(resultItem);
     }
 
-    Map<String, Object> result = new HashMap<>();
-    result.put("message", "전체 제출 완료");
-    result.put("totalCount", results.size());
-    result.put("acceptedCount", acceptedCount);
-    result.put("wrongCount", wrongCount);
-    result.put("results", results);
+results.sort(Comparator.comparing(BulkSubmissionResultItem::getStatus));
+
+int totalCount = results.size();
+String acceptedRate = (totalCount == 0) ? "0%" : (acceptedCount * 100 / totalCount) + "%";
+int score = acceptedCount;
+int maxScore = totalCount;
+
+Map<String, Object> result = new HashMap<>();
+result.put("message", "전체 제출 완료");
+result.put("totalCount", totalCount);
+result.put("acceptedCount", acceptedCount);
+result.put("wrongCount", wrongCount);
+result.put("acceptedRate", acceptedRate);
+result.put("score", score);
+result.put("maxScore", maxScore);
+result.put("results", results);
 
     return result;
 }

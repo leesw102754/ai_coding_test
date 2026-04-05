@@ -22,6 +22,7 @@ public class AiService {
     private final PythonJudgeService pythonJudgeService;
     private final CppJudgeService cppJudgeService;
     private final JavaJudgeService javaJudgeService;
+    private final CJudgeService cJudgeService;
     private final TestCaseRepository testCaseRepository;
     private final ExamRepository examRepository;
 
@@ -32,12 +33,14 @@ public AiService(
         PythonJudgeService pythonJudgeService,
         CppJudgeService cppJudgeService,
         JavaJudgeService javaJudgeService,
+        CJudgeService cJudgeService,
         TestCaseRepository testCaseRepository,
         ExamRepository examRepository
 ) {
     this.pythonJudgeService = pythonJudgeService;
     this.cppJudgeService = cppJudgeService;
     this.javaJudgeService = javaJudgeService;
+    this.cJudgeService = cJudgeService;
     this.testCaseRepository = testCaseRepository;
     this.examRepository = examRepository;
 }
@@ -59,6 +62,8 @@ String language = submission.getLanguage();
 
 if ("python".equalsIgnoreCase(language)) {
     judgeResult = pythonJudgeService.judge(submission.getCode(), testCases);
+} else if ("c".equalsIgnoreCase(language)) {
+    judgeResult = cJudgeService.judge(submission.getCode(), testCases);
 } else if ("cpp".equalsIgnoreCase(language) || "c++".equalsIgnoreCase(language)) {
     judgeResult = cppJudgeService.judge(submission.getCode(), testCases);
 } else if ("java".equalsIgnoreCase(language)) {
@@ -68,7 +73,7 @@ if ("python".equalsIgnoreCase(language)) {
     judgeResult.setStatus("runtime_error");
     judgeResult.setErrorTypeHint("runtime_error");
     judgeResult.setStdout("");
-    judgeResult.setStderr("현재는 Python, C++, Java만 실제 실행 지원");
+    judgeResult.setStderr("현재는 Python, C, C++, Java만 실제 실행 지원");
     judgeResult.setCompileOutput("");
     judgeResult.setExecutionTimeMs(0);
     judgeResult.setMemoryKb(0);

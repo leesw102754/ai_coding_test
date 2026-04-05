@@ -1,0 +1,207 @@
+1. 테스트케이스 등록
+문제 4개 먼저 만들기
+
+언어별로 섞어서 보여주려면 문제를 4개 만들어두는 게 깔끔하다.
+
+POST 
+http://localhost:8080/api/exams
+
+문제 1
+{
+  "title": "두 수의 합",
+  "description": "두 정수 a와 b를 입력받아 합을 출력하시오."
+}
+문제 2
+{
+  "title": "두 수의 곱",
+  "description": "두 정수 a와 b를 입력받아 곱을 출력하시오."
+}
+문제 3
+{
+  "title": "배열 첫 번째 값 출력",
+  "description": "정수 2개가 입력되면 첫 번째 값을 출력하시오."
+}
+문제 4
+{
+  "title": "고정값 출력",
+  "description": "문자열 OK를 출력하시오."
+}
+
+문제 생성 후 응답에서 id를 확인해서 아래 examId에 넣으면 된다.
+
+2. 테스트케이스 등록 JSON
+
+POST 
+http://localhost:8080/api/testcases
+
+문제 1용 테스트케이스
+{
+  "examId": 2,
+  "input": "1 2\n",
+  "expectedOutput": "3"
+}
+{
+  "examId": 2,
+  "input": "10 20\n",
+  "expectedOutput": "30"
+}
+{
+  "examId": 2,
+  "input": "-1 5\n",
+  "expectedOutput": "4"
+}
+
+문제 2용 테스트케이스
+{
+  "examId": 3,
+  "input": "2 3\n",
+  "expectedOutput": "6"
+}
+{
+  "examId": 3,
+  "input": "4 5\n",
+  "expectedOutput": "20"
+}
+{
+  "examId": 3,
+  "input": "7 0\n",
+  "expectedOutput": "0"
+}
+
+문제 3용 테스트케이스
+{
+  "examId": 4,
+  "input": "10 20\n",
+  "expectedOutput": "10"
+}
+{
+  "examId": 4,
+  "input": "7 9\n",
+  "expectedOutput": "7"
+}
+
+문제 4용 테스트케이스
+{
+  "examId": 5,
+  "input": "",
+  "expectedOutput": "OK"
+}
+{
+  "examId": 5,
+  "input": "\n",
+  "expectedOutput": "OK"
+}
+
+3. mixed bulk JSON
+POST 
+http://localhost:8080/api/submissions/bulk
+
+{
+  "studentId": "20260001",
+  "studentName": "test_mix",
+  "submissions": [
+    {
+      "examId": 2,
+      "language": "python",
+      "code": "a, b = map(int, input().split())\nprint(a + b)"
+    },
+    {
+      "examId": 2,
+      "language": "python",
+      "code": "a, b = map(int, input().split())\nprint(a - b)"
+    },
+    {
+      "examId": 2,
+      "language": "python",
+      "code": "a, b = map(int, input().split())\nprint(a / 0)"
+    },
+    {
+      "examId": 4,
+      "language": "python",
+      "code": "arr = [1, 2]\nprint(arr[3])"
+    },
+    {
+      "examId": 5,
+      "language": "python",
+      "code": "print('hello')"
+    },
+
+    {
+      "examId": 2,
+      "language": "c",
+      "code": "#include <stdio.h>\nint main() {\n    int a, b;\n    scanf(\"%d %d\", &a, &b);\n    printf(\"%d\", a + b);\n    return 0;\n}"
+    },
+    {
+      "examId": 2,
+      "language": "c",
+      "code": "#include <stdio.h>\nint main() {\n    int a, b;\n    scanf(\"%d %d\", &a, &b);\n    printf(\"%d\", a - b);\n    return 0;\n}"
+    },
+    {
+      "examId": 2,
+      "language": "c",
+      "code": "#include <stdio.h>\nint main() {\n    int a = 0;\n    printf(\"%d\", 10 / a);\n    return 0;\n}"
+    },
+    {
+      "examId": 2,
+      "language": "c",
+      "code": "#include <stdio.h>\nint main() {\n    printf(\"hello\")\n    return 0;\n}"
+    },
+    {
+      "examId": 5,
+      "language": "c",
+      "code": "#include <stdio.h>\nint main() {\n    printf(\"hello\");\n    return 0;\n}"
+    },
+
+    {
+      "examId": 3,
+      "language": "cpp",
+      "code": "#include <iostream>\nusing namespace std;\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << a * b;\n    return 0;\n}"
+    },
+    {
+      "examId": 3,
+      "language": "cpp",
+      "code": "#include <iostream>\nusing namespace std;\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << a + b;\n    return 0;\n}"
+    },
+    {
+      "examId": 3,
+      "language": "cpp",
+      "code": "#include <iostream>\nusing namespace std;\nint main() {\n    int a = 0;\n    cout << 10 / a;\n    return 0;\n}"
+    },
+    {
+      "examId": 4,
+      "language": "cpp",
+      "code": "#include <iostream>\n#include <vector>\nusing namespace std;\nint main() {\n    vector<int> v = {1, 2};\n    cout << v.at(3);\n    return 0;\n}"
+    },
+    {
+      "examId": 5,
+      "language": "cpp",
+      "code": "#include <iostream>\nusing namespace std;\nint main() {\n    cout << \"OK\"\n    return 0;\n}"
+    },
+
+    {
+      "examId": 3,
+      "language": "java",
+      "code": "import java.util.*;\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        int a = sc.nextInt();\n        int b = sc.nextInt();\n        System.out.print(a * b);\n    }\n}"
+    },
+    {
+      "examId": 3,
+      "language": "java",
+      "code": "import java.util.*;\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        int a = sc.nextInt();\n        int b = sc.nextInt();\n        System.out.print(a - b);\n    }\n}"
+    },
+    {
+      "examId": 3,
+      "language": "java",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        int a = 0;\n        System.out.print(10 / a);\n    }\n}"
+    },
+    {
+      "examId": 4,
+      "language": "java",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        int[] arr = {1, 2};\n        System.out.print(arr[3]);\n    }\n}"
+    },
+    {
+      "examId": 5,
+      "language": "java",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        System.out.println(\"OK\")\n    }\n}"
+    }
+  ]
+}
