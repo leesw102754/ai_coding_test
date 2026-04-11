@@ -8,11 +8,48 @@ const difficultyClass = { easy: 'tag-easy', medium: 'tag-medium', hard: 'tag-har
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { problems, stats } = useProblem();
+  const { problems, fetchProblems, loading } = useProblem();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
 
-  const filtered = problems.filter(p => {
+    const problemsWithStatus = problems.map((p) => {
+  const solved = sessionStorage.getItem(`solved-${p.id}`) === 'true';
+  const resultRaw = sessionStorage.getItem(`result-${p.id}`);
+  const result = resultRaw ? JSON.parse(resultRaw) : null;
+  return {
+    ...p,
+    submitted: solved,
+    solved: result?.isCorrect === true,
+    errorType: result?.errorType || null,
+  };
+});
+
+const [isRefreshing, setIsRefreshing] = useState(false);
+const handleRefresh = async () => {
+  if (isRefreshing) return;
+
+  try {
+    setIsRefreshing(true);
+    await fetchProblems();
+  } finally {
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 500);
+  }
+};
+
+
+const computedStats = {
+  total: problemsWithStatus.length,
+  solved: problemsWithStatus.filter((p) => p.solved).length,
+  submitted: problemsWithStatus.filter((p) => p.submitted).length,
+  unsolved: problemsWithStatus.filter((p) => p.submitted && !p.solved).length,
+  easy: problemsWithStatus.filter((p) => p.difficulty === 'easy').length,
+  medium: problemsWithStatus.filter((p) => p.difficulty === 'medium').length,
+  hard: problemsWithStatus.filter((p) => p.difficulty === 'hard').length,
+};
+
+  const filtered = problemsWithStatus.filter(p => {
     const matchSearch =
       p.title.toLowerCase().includes(search.toLowerCase()) ||
       p.tags.some(t => t.toLowerCase().includes(search.toLowerCase()));
@@ -73,15 +110,15 @@ export default function HomePage() {
             <div className="progress-item">
               <span className="progress-label">해결한 문제</span>
               <span className="progress-value">
-                <span className="progress-solved">{stats.solved}</span>
+                <span className="progress-solved">{computedStats.submitted}</span>
                 <span className="progress-sep"> / </span>
-                <span>{stats.total}</span>
+                <span>{computedStats.total}</span>
               </span>
             </div>
             <div className="progress-bar-wrap">
               <div
                 className="progress-bar-fill"
-                style={{ width: `${stats.total > 0 ? (stats.solved / stats.total) * 100 : 0}%` }}
+                style={{ width: `${computedStats.total > 0 ? (computedStats.submitted / computedStats.total) * 100 : 0}%` }}
               />
             </div>
           </div>
@@ -92,17 +129,17 @@ export default function HomePage() {
               <div className="diff-item" onClick={() => setFilter('easy')}>
                 <span className="diff-dot dot-easy" />
                 <span className="diff-name">쉬움</span>
-                <span className="diff-count">{stats.easy}</span>
+                <span className="diff-count">{computedStats.easy}</span>
               </div>
               <div className="diff-item" onClick={() => setFilter('medium')}>
                 <span className="diff-dot dot-medium" />
                 <span className="diff-name">보통</span>
-                <span className="diff-count">{stats.medium}</span>
+                <span className="diff-count">{computedStats.medium}</span>
               </div>
               <div className="diff-item" onClick={() => setFilter('hard')}>
                 <span className="diff-dot dot-hard" />
                 <span className="diff-name">어려움</span>
-                <span className="diff-count">{stats.hard}</span>
+                <span className="diff-count">{computedStats.hard}</span>
               </div>
             </div>
           </div>
@@ -112,24 +149,24 @@ export default function HomePage() {
             <div className="stats-grid">
               <div className="stat-card">
                 <div className="stat-icon">🏆</div>
-                <div className="stat-value">{stats.solved}</div>
+                <div className="stat-value">{computedStats.solved}</div>
                 <div className="stat-label">정답</div>
               </div>
               <div className="stat-card">
                 <div className="stat-icon">📊</div>
-                <div className="stat-value">{stats.total}</div>
+                <div className="stat-value">{computedStats.total}</div>
                 <div className="stat-label">전체</div>
               </div>
               <div className="stat-card">
                 <div className="stat-icon">⚡</div>
                 <div className="stat-value">
-                  {stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0}%
+                  {computedStats.total > 0 ? Math.round((computedStats.solved / computedStats.total) * 100) : 0}%
                 </div>
                 <div className="stat-label">정답률</div>
               </div>
               <div className="stat-card">
                 <div className="stat-icon">🔥</div>
-                <div className="stat-value">{stats.total - stats.solved}</div>
+                <div className="stat-value">{computedStats.total - computedStats.submitted}</div>
                 <div className="stat-label">미해결</div>
               </div>
             </div>
@@ -170,6 +207,29 @@ export default function HomePage() {
             </div>
 
             <span className="problem-count">{filtered.length}개 문제</span>
+
+            <button
+              type="button"
+              className={`refresh-btn ${isRefreshing ? 'spinning' : ''}`}
+              onClick={handleRefresh}
+              disabled={isRefreshing || loading}
+              title="새로고침"
+            >
+              <svg
+                className="refresh-icon"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M21 2v6h-6" />
+                <path d="M3 11a9 9 0 0 1 15.55-5.36L21 8" />
+                <path d="M3 22v-6h6" />
+                <path d="M21 13a9 9 0 0 1-15.55 5.36L3 16" />
+              </svg>
+            </button>
           </div>
 
           {/* Problem Items */}
@@ -183,12 +243,12 @@ export default function HomePage() {
               filtered.map(problem => (
                 <div
                   key={problem.id}
-                  className={`problem-item ${problem.solved ? 'solved' : ''}`}
+                  className={`problem-item ${problem.submitted ? 'solved' : ''}`}
                   onClick={() => navigate(`/problem/${problem.id}`)}
                 >
                   <div className="problem-left">
-                    <div className={`solve-indicator ${problem.solved ? 'solved' : ''}`}>
-                      {problem.solved ? (
+                    <div className={`solve-indicator ${problem.submitted ? 'solved' : ''}`}>
+                      {problem.submitted ? (
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                           <polyline points="20 6 9 17 4 12"/>
                         </svg>

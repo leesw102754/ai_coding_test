@@ -146,3 +146,38 @@ C
     }
   ]
 }
+
+--------------------------------------------------------------------------------------------------------
+JS
+
+{
+  "studentId": "20260001",
+  "studentName": "test_all",
+  "submissions": [
+    {
+      "examId": 2,
+      "language": "javascript",
+      "code": "const fs = require('fs'); const input = fs.readFileSync(0,'utf8').trim().split(/\\s+/).map(Number); console.log(input[0]+input[1]);"
+    },
+    {
+      "examId": 2,
+      "language": "javascript",
+      "code": "const fs = require('fs'); const input = fs.readFileSync(0,'utf8').trim().split(/\\s+/).map(Number); console.log(input[0]-input[1]);"
+    },
+    {
+      "examId": 2,
+      "language": "javascript",
+      "code": "console.log(notDefinedVar);"
+    },
+    {
+      "examId": 2,
+      "language": "javascript",
+      "code": "const arr=[1,2]; console.log(arr[3].toString());"
+    },
+    {
+      "examId": 2,
+      "language": "javascript",
+      "code": "const a = 1\nconst b = 2\nconsole.log(a + b"
+    }
+  ]
+}

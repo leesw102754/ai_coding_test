@@ -4,7 +4,8 @@ import Editor from '@monaco-editor/react';
 import { useProblem } from '../context/ProblemContext';
 import { useTheme } from '../context/ThemeContext';
 import './ProblemPage.css';
-import { submitExam } from '../api/problemApi';
+import { submitExam, getTestCasesByExamId } from '../api/problemApi';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 const LANGUAGES = [
   { id: 'javascript', label: 'JavaScript' },
@@ -15,10 +16,10 @@ const LANGUAGES = [
 export default function ProblemPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { problems, markSolved } = useProblem();
+  const { problems } = useProblem();
   const { theme } = useTheme();
 
-  const problem = problems.find(p => p.id === parseInt(id));
+  const problem = problems.find((p) => p.id === parseInt(id, 10));
 
   const [language, setLanguage] = useState('javascript');
   const [code, setCode] = useState('');
@@ -33,63 +34,59 @@ export default function ProblemPage() {
   const [testResults, setTestResults] = useState([]);
   const [submitResult, setSubmitResult] = useState(null);
   const [timer, setTimer] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [testCases, setTestCases] = useState([]);
+
   const timerRef = useRef(null);
   const warningRef = useRef(false);
 
-  // 제출 기능만 구현 (채점은 서버에서 처리한다고 가정) - 실제로는 채점 결과를 받아와서 처리해야 함
-  const onlysubmitCode = async () => {
-  setIsRunning(true);
+  useEffect(() => {
+    const solved = sessionStorage.getItem(`solved-${id}`);
 
-  try {
-    const res = await submitExam({
-      examId: problem.id,
-      studentName: '홍길동',
-      code,
-    });
+    if (solved === 'true') {
+      alert('이미 제출한 문제입니다.');
+      navigate('/');
+    }
+  }, [id, navigate]);
 
-    // 🔥 지금은 채점 없으니까 그냥 성공 처리
-    setSubmitResult({
-      success: true,
-      message: '제출 완료!',
-    });
-
-    markSolved(problem.id);
-
-  } catch (err) {
-    console.error(err);
-    setSubmitResult({
-      success: false,
-      message: '제출 실패',
-    });
-  }
-
-  setIsRunning(false);
-};
-
-  // Initialize code when problem or language changes
   useEffect(() => {
     if (problem) {
       const saved = localStorage.getItem(`codetest-code-${problem.id}-${language}`);
-      setCode(saved || problem.starterCode[language] || '');
+      setCode(saved || problem.starterCode?.[language] || '');
     }
   }, [problem, language]);
 
-  // Save code on change
   useEffect(() => {
-    if (problem && code) {
+    if (problem) {
       localStorage.setItem(`codetest-code-${problem.id}-${language}`, code);
     }
   }, [code, problem, language]);
 
-  // Timer
   useEffect(() => {
     if (examStarted) {
       timerRef.current = setInterval(() => {
-        setTimer(t => t + 1);
+        setTimer((t) => t + 1);
       }, 1000);
     }
+
     return () => clearInterval(timerRef.current);
   }, [examStarted]);
+
+  useEffect(() => {
+    const fetchTestCases = async () => {
+      try {
+        const data = await getTestCasesByExamId(id);
+        setTestCases(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error('테스트케이스 불러오기 실패', e);
+        setTestCases([]);
+      }
+    };
+
+    if (id) {
+      fetchTestCases();
+    }
+  }, [id]);
 
   const formatTime = (s) => {
     const m = Math.floor(s / 60);
@@ -97,7 +94,6 @@ export default function ProblemPage() {
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   };
 
-  // Fullscreen management
   const enterFullscreen = useCallback(() => {
     const el = document.documentElement;
     if (el.requestFullscreen) el.requestFullscreen();
@@ -113,7 +109,6 @@ export default function ProblemPage() {
     else if (document.msExitFullscreen) document.msExitFullscreen();
   }, []);
 
-  // Detect fullscreen change
   useEffect(() => {
     const handleFSChange = () => {
       const isFull = !!(
@@ -122,12 +117,12 @@ export default function ProblemPage() {
         document.mozFullScreenElement ||
         document.msFullscreenElement
       );
+
       setIsFullscreen(isFull);
 
-      // If exam started and user exited fullscreen without permission
       if (examStarted && !isFull && !warningRef.current) {
         warningRef.current = true;
-        setWarningCount(c => c + 1);
+        setWarningCount((c) => c + 1);
         setWarningVisible(true);
       }
     };
@@ -145,38 +140,31 @@ export default function ProblemPage() {
     };
   }, [examStarted]);
 
-  // Prevent tab/window switching during exam
   useEffect(() => {
     if (!examStarted) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        setWarningCount(c => c + 1);
+        setWarningCount((c) => c + 1);
         setWarningVisible(true);
-        // Re-enter fullscreen when user returns
       }
     };
 
     const handleBlur = () => {
-      if (examStarted) {
-        setWarningCount(c => c + 1);
-        setWarningVisible(true);
-      }
+      setWarningCount((c) => c + 1);
+      setWarningVisible(true);
     };
 
     const handleKeyDown = (e) => {
-      // Block Alt+Tab, Alt+F4, Ctrl+W, F11 during exam
       if (
         (e.altKey && e.key === 'Tab') ||
         (e.altKey && e.key === 'F4') ||
-        (e.ctrlKey && e.key === 'w') ||
-        (e.ctrlKey && e.key === 'W') ||
-        (e.metaKey && e.key === 'w') ||
-        (e.metaKey && e.key === 'W')
+        (e.ctrlKey && (e.key === 'w' || e.key === 'W')) ||
+        (e.metaKey && (e.key === 'w' || e.key === 'W'))
       ) {
         e.preventDefault();
         e.stopPropagation();
-        setWarningCount(c => c + 1);
+        setWarningCount((c) => c + 1);
         setWarningVisible(true);
       }
     };
@@ -207,7 +195,6 @@ export default function ProblemPage() {
   const handleWarningClose = () => {
     warningRef.current = false;
     setWarningVisible(false);
-    // Re-enter fullscreen
     enterFullscreen();
   };
 
@@ -229,7 +216,7 @@ export default function ProblemPage() {
     setExitConfirm(false);
   };
 
-  // Run code (simulated)
+  // 로컬 실행 미리보기
   const runCode = () => {
     setIsRunning(true);
     setOutput('');
@@ -237,71 +224,113 @@ export default function ProblemPage() {
 
     setTimeout(() => {
       try {
-        // Simple JS execution for demo
         if (language === 'javascript') {
-          const results = problem.testCases.map((tc, i) => {
+          const results = testCases.map((tc, i) => {
             try {
-              // Capture console.log
-              const logs = [];
-              const origLog = console.log;
-              console.log = (...args) => logs.push(args.join(' '));
-
-              // eslint-disable-next-line no-new-func
-              const fn = new Function(code + '\n// auto-run placeholder');
-              console.log = origLog;
-
               return {
                 id: i + 1,
                 input: tc.input,
-                expected: tc.expected,
+                expected: tc.expectedOutput,
                 actual: '실행 완료',
                 passed: true,
-                logs,
               };
             } catch (err) {
               return {
                 id: i + 1,
                 input: tc.input,
-                expected: tc.expected,
+                expected: tc.expectedOutput,
                 actual: `오류: ${err.message}`,
                 passed: false,
-                logs: [],
               };
             }
           });
+
           setTestResults(results);
-          setOutput(results.map(r =>
-            `테스트 ${r.id}: ${r.passed ? '✓ 통과' : '✗ 실패'}\n  입력: ${r.input}\n  기대값: ${r.expected}\n  결과: ${r.actual}`
-          ).join('\n\n'));
+          setOutput(
+            results
+              .map(
+                (r) =>
+                  `테스트 ${r.id}: ${r.passed ? '✓ 통과' : '✗ 실패'}\n입력: ${r.input}\n기대값: ${r.expected}\n결과: ${r.actual}`
+              )
+              .join('\n\n')
+          );
         } else {
-          setOutput(`[${language.toUpperCase()}] 코드가 실행 환경에 제출되었습니다.\n오프라인 환경에서는 JavaScript만 직접 실행됩니다.`);
-          setTestResults(problem.testCases.map((tc, i) => ({
-            id: i + 1,
-            input: tc.input,
-            expected: tc.expected,
-            actual: '서버 실행 필요',
-            passed: null,
-          })));
+          setOutput(
+            `[${language.toUpperCase()}] 로컬 미리보기는 제한됩니다.\n실제 채점은 제출 후 서버에서 처리됩니다.`
+          );
+
+          setTestResults(
+            testCases.map((tc, i) => ({
+              id: i + 1,
+              input: tc.input,
+              expected: tc.expectedOutput,
+              actual: '서버 채점 필요',
+              passed: null,
+            }))
+          );
         }
       } catch (err) {
         setOutput(`실행 오류: ${err.message}`);
       }
+
       setIsRunning(false);
-    }, 800);
+    }, 500);
   };
 
-  const submitCode = () => {
+  // 실제 제출
+  const handleSubmit = async () => {
+    if (!code.trim()) {
+      alert('코드를 입력하세요.');
+      return;
+    }
+
     setIsRunning(true);
-    setTimeout(() => {
-      const allPassed = testResults.length > 0 && testResults.every(r => r.passed === true);
-      if (allPassed) {
-        markSolved(problem.id);
-        setSubmitResult({ success: true, message: '모든 테스트 케이스를 통과했습니다!' });
-      } else {
-        setSubmitResult({ success: false, message: '일부 테스트 케이스가 실패했습니다. 코드를 다시 확인해보세요.' });
-      }
+    setIsSubmitting(true);
+    setSubmitResult(null);
+
+    try {
+      const savedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+
+      const res = await submitExam({
+        examId: problem.id,
+        studentName: savedUser.name,
+        language,
+        code,
+      });
+
+      setSubmitResult({
+        success: true,
+        message: res.message || '제출 완료',
+        submission: res.submission,
+        aiFeedback: res.ai_feedback,
+      });
+
+      const ai = res.ai_feedback;
+      sessionStorage.setItem(
+        `result-${problem.id}`,
+        JSON.stringify({
+          isCorrect: ai?.error_type === 'accepted',
+          errorType: ai?.error_type,
+          summary: ai?.summary,
+          wrongReason: ai?.wrong_reason,
+          solutionDirection: ai?.solution_direction,
+          improvement: ai?.improvement_feedback,
+        })
+      );
+
+      sessionStorage.setItem(`solved-${problem.id}`, 'true');
+      setOutput('제출이 완료되었습니다. 아래 AI 피드백을 확인하세요.');
+    } catch (err) {
+      console.error(err);
+
+      setSubmitResult({
+        success: false,
+        message: err.response?.data?.message || '제출 실패',
+      });
+    } finally {
       setIsRunning(false);
-    }, 1000);
+      setIsSubmitting(false);
+    }
   };
 
   if (!problem) {
@@ -313,19 +342,28 @@ export default function ProblemPage() {
     );
   }
 
-  const diffMap = { easy: { label: '쉬움', cls: 'tag-easy' }, medium: { label: '보통', cls: 'tag-medium' }, hard: { label: '어려움', cls: 'tag-hard' } };
+  const diffMap = {
+    easy: { label: '쉬움', cls: 'tag-easy' },
+    medium: { label: '보통', cls: 'tag-medium' },
+    hard: { label: '어려움', cls: 'tag-hard' },
+  };
 
   return (
     <div className={`problem-page ${examStarted ? 'exam-mode' : ''}`}>
-      {/* Warning Overlay - tab switch detected */}
+      {isSubmitting && (
+        <LoadingOverlay text="코드를 제출하고 AI가 분석 중입니다..." />
+      )}
+
       {warningVisible && (
         <div className="exam-warning-overlay">
           <div className="exam-warning-box">
             <div className="warning-icon">⚠️</div>
             <h2>부정행위 경고</h2>
             <p>
-              다른 창이나 탭으로 이동이 감지되었습니다.<br />
-              시험 중에는 다른 창으로 이동할 수 없습니다.<br />
+              다른 창이나 탭으로 이동이 감지되었습니다.
+              <br />
+              시험 중에는 다른 창으로 이동할 수 없습니다.
+              <br />
               <strong>경고 횟수: {warningCount}회</strong>
             </p>
             <button onClick={handleWarningClose}>확인 (전체화면으로 복귀)</button>
@@ -333,42 +371,40 @@ export default function ProblemPage() {
         </div>
       )}
 
-      {/* Exit Confirm Dialog */}
       {exitConfirm && (
         <div className="exam-warning-overlay">
           <div className="exam-warning-box">
             <div className="warning-icon">🚪</div>
             <h2>시험 종료</h2>
             <p>
-              시험을 종료하시겠습니까?<br />
+              시험을 종료하시겠습니까?
+              <br />
               작성한 코드는 저장됩니다.
             </p>
             <div className="confirm-buttons">
-              <button className="btn-cancel" onClick={cancelExit}>계속 풀기</button>
-              <button className="btn-exit" onClick={confirmExit}>시험 종료</button>
+              <button className="btn-cancel" onClick={cancelExit}>
+                계속 풀기
+              </button>
+              <button className="btn-exit" onClick={confirmExit}>
+                시험 종료
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Exam Header */}
       <div className="exam-header">
         <div className="exam-header-left">
           {!examStarted ? (
             <button className="btn-back" onClick={() => navigate('/')}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
               목록
             </button>
           ) : (
             <button className="btn-back exam-exit" onClick={handleExitExam}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
               시험 종료
             </button>
           )}
+
           <div className="exam-problem-info">
             <span className="exam-number">{problem.number}</span>
             <span className="exam-title">{problem.title}</span>
@@ -377,33 +413,23 @@ export default function ProblemPage() {
             </span>
           </div>
         </div>
+
         <div className="exam-header-right">
           {examStarted && (
             <>
-              <div className="exam-timer">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="12 6 12 12 16 14"/>
-                </svg>
-                {formatTime(timer)}
-              </div>
-              {warningCount > 0 && (
-                <div className="warning-badge">⚠️ 경고 {warningCount}회</div>
-              )}
+              <div className="exam-timer">{formatTime(timer)}</div>
+              {warningCount > 0 && <div className="warning-badge">⚠️ 경고 {warningCount}회</div>}
             </>
           )}
+
           {!examStarted && (
             <button className="btn-start-exam" onClick={startExam}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
               시험 시작
             </button>
           )}
         </div>
       </div>
 
-      {/* Not started overlay */}
       {!examStarted && (
         <div className="pre-exam-banner">
           <div className="pre-exam-content">
@@ -417,9 +443,7 @@ export default function ProblemPage() {
         </div>
       )}
 
-      {/* Main Editor Layout */}
       <div className={`editor-layout ${!examStarted ? 'blurred' : ''}`}>
-        {/* Left Panel - Problem Description */}
         <div className="left-panel">
           <div className="panel-tabs">
             <button
@@ -440,30 +464,39 @@ export default function ProblemPage() {
             {activeTab === 'description' && (
               <div className="description-content">
                 <div className="problem-meta">
-                  <span className="meta-item">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10"/>
-                      <polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                    시간 제한: {problem.timeLimit}ms
-                  </span>
+                  <span className="meta-item">시간 제한: {problem.timeLimit}ms</span>
                   <div className="meta-tags">
-                    {problem.tags.map(tag => (
-                      <span key={tag} className="tag">{tag}</span>
+                    {problem.tags.map((tag) => (
+                      <span key={tag} className="tag">
+                        {tag}
+                      </span>
                     ))}
                   </div>
                 </div>
+
                 <div className="description-text">
                   {problem.description.split('\n').map((line, i) => {
                     if (line.startsWith('```')) return null;
                     if (line.startsWith('**')) {
-                      return <h4 key={i} className="desc-heading">{line.replace(/\*\*/g, '')}</h4>;
+                      return (
+                        <h4 key={i} className="desc-heading">
+                          {line.replace(/\*\*/g, '')}
+                        </h4>
+                      );
                     }
                     if (line.startsWith('- ')) {
-                      return <li key={i} className="desc-li">{line.slice(2)}</li>;
+                      return (
+                        <li key={i} className="desc-li">
+                          {line.slice(2)}
+                        </li>
+                      );
                     }
                     if (line.trim() === '') return <br key={i} />;
-                    return <p key={i} className="desc-p">{line}</p>;
+                    return (
+                      <p key={i} className="desc-p">
+                        {line}
+                      </p>
+                    );
                   })}
                 </div>
               </div>
@@ -471,45 +504,67 @@ export default function ProblemPage() {
 
             {activeTab === 'testcases' && (
               <div className="testcases-content">
-                {problem.testCases.map((tc, i) => (
-                  <div key={i} className="testcase-card">
-                    <div className="testcase-header">
-                      <span className="testcase-num">테스트 {i + 1}</span>
+                {testCases.length > 0 ? (
+                  testCases.map((tc, i) => (
+                    <div key={i} className="testcase-card">
+                      <div className="testcase-header">
+                        <span className="testcase-num">테스트 {i + 1}</span>
+                        {testResults[i] && (
+                          <span
+                            className={`testcase-result ${
+                              testResults[i].passed === true
+                                ? 'passed'
+                                : testResults[i].passed === false
+                                ? 'failed'
+                                : 'pending'
+                            }`}
+                          >
+                            {testResults[i].passed === true
+                              ? '✓ 통과'
+                              : testResults[i].passed === false
+                              ? '✗ 실패'
+                              : '대기'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="testcase-row">
+                        <span className="tc-label">입력</span>
+                        <code className="tc-value">{tc.input}</code>
+                      </div>
+
+                      <div className="testcase-row">
+                        <span className="tc-label">기대값</span>
+                        <code className="tc-value">{tc.expectedOutput}</code>
+                      </div>
+
                       {testResults[i] && (
-                        <span className={`testcase-result ${testResults[i].passed === true ? 'passed' : testResults[i].passed === false ? 'failed' : 'pending'}`}>
-                          {testResults[i].passed === true ? '✓ 통과' : testResults[i].passed === false ? '✗ 실패' : '대기'}
-                        </span>
+                        <div className="testcase-row">
+                          <span className="tc-label">실제값</span>
+                          <code className={`tc-value ${testResults[i].passed === false ? 'tc-error' : ''}`}>
+                            {testResults[i].actual}
+                          </code>
+                        </div>
                       )}
                     </div>
+                  ))
+                ) : (
+                  <div className="testcase-card">
                     <div className="testcase-row">
-                      <span className="tc-label">입력</span>
-                      <code className="tc-value">{tc.input}</code>
+                      <span className="tc-label">안내</span>
+                      <code className="tc-value">등록된 테스트케이스가 없습니다.</code>
                     </div>
-                    <div className="testcase-row">
-                      <span className="tc-label">기대값</span>
-                      <code className="tc-value">{tc.expected}</code>
-                    </div>
-                    {testResults[i] && (
-                      <div className="testcase-row">
-                        <span className="tc-label">실제값</span>
-                        <code className={`tc-value ${testResults[i].passed === false ? 'tc-error' : ''}`}>
-                          {testResults[i].actual}
-                        </code>
-                      </div>
-                    )}
                   </div>
-                ))}
+                )}
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Panel - Code Editor */}
         <div className="right-panel">
-          {/* Editor Toolbar */}
           <div className="editor-toolbar">
             <div className="lang-selector">
-              {LANGUAGES.map(lang => (
+              {LANGUAGES.map((lang) => (
                 <button
                   key={lang.id}
                   className={`lang-btn ${language === lang.id ? 'active' : ''}`}
@@ -519,32 +574,27 @@ export default function ProblemPage() {
                 </button>
               ))}
             </div>
+
             <div className="editor-actions">
               <button
                 className="btn-reset"
                 onClick={() => {
                   if (window.confirm('코드를 초기화하시겠습니까?')) {
-                    setCode(problem.starterCode[language] || '');
+                    setCode(problem.starterCode?.[language] || '');
                   }
                 }}
-                title="코드 초기화"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="1 4 1 10 7 10"/>
-                  <path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
-                </svg>
                 초기화
               </button>
             </div>
           </div>
 
-          {/* Monaco Editor */}
           <div className="editor-container">
             <Editor
               height="100%"
               language={language}
               value={code}
-              onChange={val => setCode(val || '')}
+              onChange={(val) => setCode(val || '')}
               theme={theme === 'dark' ? 'vs-dark' : 'light'}
               options={{
                 fontSize: 14,
@@ -564,54 +614,63 @@ export default function ProblemPage() {
             />
           </div>
 
-          {/* Output Panel */}
           <div className="output-panel">
             <div className="output-header">
-              <span className="output-title">실행 결과</span>
+              <span className="output-title">결과</span>
               {submitResult && (
                 <span className={`submit-result ${submitResult.success ? 'success' : 'fail'}`}>
-                  {submitResult.success ? '✓ 정답' : '✗ 오답'}
+                  {submitResult.success ? '✓ 제출 완료' : '✗ 제출 실패'}
                 </span>
               )}
             </div>
+
             <div className="output-content">
               {output ? (
                 <pre className="output-text">{output}</pre>
               ) : (
-                <span className="output-placeholder">코드를 실행하면 결과가 여기에 표시됩니다.</span>
+                <span className="output-placeholder">실행 또는 제출 결과가 여기에 표시됩니다.</span>
               )}
+
               {submitResult && (
-                <div className={`submit-message ${submitResult.success ? 'success' : 'fail'}`}>
-                  {submitResult.message}
-                </div>
+                <>
+                  <div className={`submit-message ${submitResult.success ? 'success' : 'fail'}`}>
+                    {submitResult.message}
+                  </div>
+
+                  {submitResult.submission && (
+                    <div className="result-info-box">
+                      <p><strong>제출 번호:</strong> {submitResult.submission.id}</p>
+                      <p><strong>언어:</strong> {submitResult.submission.language}</p>
+                      <p><strong>제출자:</strong> {submitResult.submission.studentName}</p>
+                      <p><strong>제출 시간:</strong> {submitResult.submission.submitTime}</p>
+                    </div>
+                  )}
+
+                  {submitResult.aiFeedback && (
+                    <div className="ai-feedback-box">
+                      <h4>AI 피드백</h4>
+                      <p><strong>오류 유형:</strong> {submitResult.aiFeedback.error_type}</p>
+                      <p><strong>요약:</strong> {submitResult.aiFeedback.summary}</p>
+                      <p><strong>오류 원인:</strong> {submitResult.aiFeedback.wrong_reason}</p>
+                      <p><strong>해결 방향:</strong> {submitResult.aiFeedback.solution_direction}</p>
+                      <p><strong>개선 피드백:</strong> {submitResult.aiFeedback.improvement_feedback}</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
 
-          {/* Run & Submit Buttons */}
           <div className="action-bar">
-            <button
-              className="btn-run"
-              onClick={runCode}
-              disabled={isRunning || !examStarted}
-            >
-              {isRunning ? (
-                <span className="spinner" />
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polygon points="5 3 19 12 5 21 5 3"/>
-                </svg>
-              )}
+            <button className="btn-run" onClick={runCode} disabled={isRunning || !examStarted}>
               {isRunning ? '실행 중...' : '실행'}
             </button>
+
             <button
               className="btn-submit"
-              onClick={onlysubmitCode}
-              disabled={isRunning || !examStarted || testResults.length === 0}
+              onClick={handleSubmit}
+              disabled={isRunning || !examStarted || !code.trim()}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
               제출
             </button>
           </div>

@@ -56,6 +56,24 @@ public class ExamApiController {
         return examRepository.findById(id).orElseThrow();
     }
 
+    @PatchMapping("/exams/{id}")
+    public Exam updateExam(@PathVariable Long id, @RequestBody Exam request) {
+        Exam exam = examRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("문제를 찾을 수 없습니다."));
+
+        if (request.getTitle() != null) exam.setTitle(request.getTitle());
+        if (request.getDescription() != null) exam.setDescription(request.getDescription());
+
+        return examRepository.save(exam);
+    }
+
+    // [관리자] 시험 문제 삭제
+    @DeleteMapping("/exams/{id}")
+    public String deleteExam(@PathVariable Long id) {
+        examRepository.deleteById(id);
+        return id + "번 문제가 삭제되었습니다.";
+    }
+
     @PostMapping("/submissions")
     public Map<String, Object> submitCode(@RequestBody Submission submission) {
 
@@ -76,6 +94,26 @@ public class ExamApiController {
         result.put("ai_feedback", aiResponse);
 
         return result;
+    }
+
+    @GetMapping("/submissions")
+    public List<Submission> getAllSubmissions() {
+        // 최신 제출순으로 보고 싶다면 리포지토리에 메서드를 추가하거나 직접 정렬하세요.
+        return submissionRepository.findAll();
+    }
+
+    // [관리자/학생] 특정 제출 내역 상세 보기 (AI 피드백 포함)
+    @GetMapping("/submissions/{id}")
+    public Submission getSubmissionDetail(@PathVariable Long id) {
+        return submissionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("제출 내역을 찾을 수 없습니다."));
+    }
+
+    // [관리자] 잘못된 제출 내역 삭제 (테스트 데이터 정리용)
+    @DeleteMapping("/submissions/{id}")
+    public String deleteSubmission(@PathVariable Long id) {
+        submissionRepository.deleteById(id);
+        return id + "번 제출 내역이 삭제되었습니다.";
     }
 
 @PostMapping("/submissions/bulk")

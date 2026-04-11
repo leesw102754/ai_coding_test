@@ -15,59 +15,12 @@ client = OpenAI(
 )
 
 ALLOWED_ERROR_TYPES = {
-    "logic_error",
-    "runtime_error",
-    "index_error",
-    "syntax_error",
-    "compile_error",
-    "type_error",
-    "timeout_error",
-    "memory_error",
-    "wrong_answer",
-    "unknown_error",
+    "accepted",
+    "logic",
+    "runtime",
+    "index",
+    "compile",
 }
-
-
-def normalize_error_type(req: AnalyzeCodeRequest) -> str:
-    jr = req.judge_result
-    stderr = (jr.stderr or "").lower()
-    compile_output = (jr.compile_output or "").lower()
-
-    if jr.error_type_hint:
-        return jr.error_type_hint
-
-    if jr.status == "timeout":
-        return "timeout_error"
-
-    if jr.status == "memory_limit_exceeded":
-        return "memory_error"
-
-    if jr.status == "compile_error":
-        return "compile_error"
-
-    if jr.status == "syntax_error":
-        return "syntax_error"
-
-    if jr.status == "type_error":
-        return "type_error"
-
-    if jr.status == "wrong_answer":
-        return "logic_error"
-
-    if "indexerror" in stderr or "outofbounds" in stderr or "out of range" in stderr:
-        return "index_error"
-
-    if "typeerror" in stderr or "incompatible types" in compile_output:
-        return "type_error"
-
-    if "syntaxerror" in stderr or "syntax error" in compile_output:
-        return "syntax_error"
-
-    if jr.status == "runtime_error":
-        return "runtime_error"
-
-    return "unknown_error"
-
 
 ANALYSIS_JSON_SCHEMA = {
     "name": "code_analysis_result",
@@ -100,6 +53,47 @@ ANALYSIS_JSON_SCHEMA = {
         ]
     }
 }
+
+
+def normalize_error_type(req: AnalyzeCodeRequest) -> str:
+    jr = req.judge_result
+    stderr = (jr.stderr or "").lower()
+    compile_output = (jr.compile_output or "").lower()
+    error_type_hint = (jr.error_type_hint or "").lower()
+
+    # 1. accepted
+    if jr.status == "accepted":
+        return "accepted"
+
+    # 2. compile / syntax
+    if jr.status in {"compile_error", "syntax_error"}:
+        return "compile"
+
+    if error_type_hint in {"compile", "compile_error", "syntax_error"}:
+        return "compile"
+
+    if "syntaxerror" in stderr or "syntax error" in stderr:
+        return "compile"
+
+    if "syntaxerror" in compile_output or "syntax error" in compile_output:
+        return "compile"
+
+    if "invalid syntax" in stderr or "unexpected eof" in stderr:
+        return "compile"
+
+    # 3. index
+    if "indexerror" in stderr or "outofbounds" in stderr or "out of range" in stderr:
+        return "index"
+
+    # 4. runtime
+    if jr.status in {"runtime_error", "timeout", "memory_limit_exceeded", "type_error"}:
+        return "runtime"
+
+    if error_type_hint in {"runtime", "runtime_error", "timeout_error", "memory_error", "type_error"}:
+        return "runtime"
+
+    # 5. logic
+    return "logic"
 
 
 def analyze_code(data: AnalyzeCodeRequest) -> AnalyzeCodeResponse:
@@ -137,6 +131,6 @@ def analyze_code(data: AnalyzeCodeRequest) -> AnalyzeCodeResponse:
     parsed["error_type"] = error_type
 
     if parsed["error_type"] not in ALLOWED_ERROR_TYPES:
-        parsed["error_type"] = "unknown_error"
+        parsed["error_type"] = "logic"
 
     return AnalyzeCodeResponse(**parsed)

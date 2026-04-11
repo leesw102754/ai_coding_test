@@ -9,7 +9,9 @@ import './styles/global.css';
 import LoginPage from './pages/LoginPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AdminPage from './pages/AdminPage';
-
+import AdminObjectivePage from './pages/AdminObjectivePage';
+import AdminCodingPage from './pages/AdminCodingPage';
+import ResultsPage from './pages/ResultsPage';
 export default function App() {
   return (
     <AuthProvider>
@@ -44,18 +46,21 @@ function AppRoutes() {
     <>
       <Header />
       <Routes>
-        {user.role === 'ADMIN' ? (
+        <Route path="/" element={<HomePage />} />
+        <Route path="/problem/:id" element={<ProblemPage />} />
+        <Route path="/results" element={<ResultsPage />} />
+        {user.role === 'ADMIN' && (
           <>
-            <Route path="/" element={<AdminPage />} />
-            <Route path="*" element={<AdminPage />} />
-          </>
-        ) : (
-          <>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/problem/:id" element={<ProblemPage />} />
-            <Route path="*" element={<HomePage />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/objective" element={<AdminObjectivePage />} />
+          <Route path="/admin/coding" element={<AdminCodingPage />} />
           </>
         )}
+
+        <Route
+          path="*"
+          element={user.role === 'ADMIN' ? <AdminPage /> : <HomePage />}
+        />
       </Routes>
     </>
   );

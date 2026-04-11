@@ -19,3 +19,15 @@ export const createExam = async (data) => {
   const res = await API.post('/exams', data);
   return res.data;
 };
+
+// 테스트케이스 등록
+export const createTestCase = async (data) => {
+  const res = await API.post('/testcases', data);
+  return res.data;
+};
+
+// 특정 문제의 테스트케이스 조회
+export const getTestCasesByExamId = async (examId) => {
+  const res = await API.get(`/exams/${examId}/testcases`);
+  return res.data;
+};

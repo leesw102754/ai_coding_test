@@ -69,54 +69,211 @@
 }
 
 .profile-btn {
+  min-width: 180px;
+  height: 42px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 20px;
-  padding: 6px 10px;
+  border-radius: 14px;
   cursor: pointer;
-  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  color: var(--text-primary);
 }
 
-/* 드롭다운 */
+.profile-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-blue);
+  box-shadow: var(--shadow);
+}
+
+.profile-btn.active {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.profile-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-blue), #60a5fa);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.profile-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  flex: 1;
+}
+
+.profile-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  max-width: 90px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-role {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.profile-arrow {
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.profile-arrow.open {
+  transform: rotate(180deg);
+}
+
 .dropdown {
   position: absolute;
-  top: 110%;
+  top: calc(100% + 10px);
   right: 0;
-  width: 140px;
+  width: 220px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+  padding: 10px;
+  z-index: 200;
+  animation: dropdown-fade 0.18s ease;
+}
+
+@keyframes dropdown-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 8px;
-  z-index: 100;
 }
 
-/* 유저 텍스트 */
-.dropdown-item {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 6px;
+.dropdown-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-blue), #60a5fa);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
-/* 버튼 */
+.dropdown-user-info {
+  min-width: 0;
+}
+
+.dropdown-user-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-user-role {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 8px 0;
+}
+
 .dropdown-btn {
   width: 100%;
-  padding: 6px 8px;
-  font-size: 0.8rem;
-  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.84rem;
+  border-radius: 10px;
   border: none;
   cursor: pointer;
-  background: var(--bg-tertiary);
-  transition: 0.2s;
+  background: transparent;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .dropdown-btn:hover {
   background: var(--bg-hover);
 }
 
-/* 로그아웃 강조 */
+.dropdown-btn-icon {
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
 .dropdown-btn.logout {
-  color: #ff4d4f;
+  color: #ef4444;
+}
+
+.dropdown-btn.logout:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.nav-btn {
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--header-border, #334155);
+  background: var(--header-btn-bg, #1e293b);
+  color: var(--header-text, #e2e8f0);
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-btn:hover {
+  background: #334155;
+  transform: translateY(-1px);
+}
+
+.nav-btn:active {
+  transform: translateY(0);
+}
+
+.admin-nav-btn {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+}
+
+.admin-nav-btn:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
 }

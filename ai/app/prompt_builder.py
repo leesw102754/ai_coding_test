@@ -44,6 +44,13 @@ def build_analysis_prompt(data: AnalyzeCodeRequest, error_type: str) -> str:
 이미 판정된 error_type:
 {error_type}
 
+사용 가능한 error_type:
+- accepted
+- logic
+- runtime
+- index
+- compile
+
 입력 정보:
 문제 제목: {data.problem_title}
 
@@ -86,6 +93,7 @@ stdout:
 6. JSON에 들어갈 수 있는 문장만 작성
 7. 반드시 입력된 언어({data.language}) 기준으로만 분석하고, 다른 언어 개념이나 에러를 섞지 마세요.
 8. error_type은 다시 판단하지 말고, 제공된 값을 그대로 전제로 설명하세요.
+9. runtime일 경우, improvement_feedback은 연산 방식이 아니라 "예외 방지 습관" 중심으로 작성하세요.
 
 중요:
 - 정답 코드를 직접 주지 마세요.

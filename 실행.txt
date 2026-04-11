@@ -12,13 +12,22 @@ gradlew.bat :backend:bootRun
 
 확인 : 
 http://localhost:8080/api/exams
+
 http://localhost:8080/h2-console
+입력값
+Driver Class
+보통 자동으로 들어가 있음: org.h2.Driver
+JDBC URL 이거 중요: jdbc:h2:mem:testdb
+User Name 보통: sa
+Password 비워두기
+지금 설정 파일에 password가 없으니까 빈칸이면 됨
 
 3. Frontend
-cd C:\Users\leesw\capston-ai\frontend
 npm install
+cd C:\Users\leesw\capston-ai\frontend
 npm start
 
 확인 : 
 http://localhost:3000
+
 

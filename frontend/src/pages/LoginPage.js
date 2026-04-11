@@ -3,9 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import './LoginPage.css';
 import { useNavigate } from 'react-router-dom';
 import { login as loginApi, signup as signupApi } from '../api/authApi';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 export default function LoginPage() {
-
+const [loginLoading, setLoginLoading] = useState(false);
+const [signupLoading, setSignupLoading] = useState(false);
 const navigate = useNavigate();
 const { login, user } = useAuth();
     
@@ -20,25 +22,29 @@ const { login, user } = useAuth();
     studentId: '',
   });
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+const handleLogin = async (e) => {
+  e.preventDefault();
 
-    if (!id || !pw) {
-      alert('입력하세요');
-      return;
-    }
+  if (!id || !pw) {
+    alert('입력하세요');
+    return;
+  }
 
-    try {
-      const userData = await loginApi({
-        username: id,
-        password: pw,
-      });
+  try {
+    setLoginLoading(true);
 
-      login(userData);
-    } catch (err) {
-      alert(err.response?.data?.message || '로그인 실패');
-    }
-  };
+    const userData = await loginApi({
+      username: id,
+      password: pw,
+    });
+
+    login(userData);
+  } catch (err) {
+    alert(err.response?.data?.message || '로그인 실패');
+  } finally {
+    setLoginLoading(false);
+  }
+};
 
 
   const handleSignupChange = (e) => {
@@ -49,35 +55,43 @@ const { login, user } = useAuth();
     }));
   };
 
-  const handleSignup = async (e) => {
-    e.preventDefault();
+const handleSignup = async (e) => {
+  e.preventDefault();
 
-    const { username, password, name, studentId } = signupForm;
-    if (!username || !password || !name || !studentId) {
-      alert('모든 항목을 입력하세요');
-      return;
-    }
-    try {
-      await signupApi({ username, password, name, studentId });
-      alert('회원가입 성공! 로그인해주세요');
-      setSignupForm({
-        username: '',
-        password: '',
-        name: '',
-        studentId: '',
-      });
-      setIsSignupOpen(false);
-    } catch (err) {
-      alert(err.response?.data?.message || '회원가입 실패');
+  const { username, password, name, studentId } = signupForm;
+  if (!username || !password || !name || !studentId) {
+    alert('모든 항목을 입력하세요');
+    return;
+  }
 
-    }
-  };
+  try {
+    setSignupLoading(true);
+
+    await signupApi({ username, password, name, studentId });
+
+    alert('회원가입 성공! 로그인해주세요');
+    setSignupForm({
+      username: '',
+      password: '',
+      name: '',
+      studentId: '',
+    });
+    setIsSignupOpen(false);
+  } catch (err) {
+    alert(err.response?.data?.message || '회원가입 실패');
+  } finally {
+    setSignupLoading(false);
+  }
+};
 
 useEffect(() => {
   if (user) {
     navigate('/');
   }
 }, [user, navigate]);
+
+
+
 
 return (
   <div className="login-page">
@@ -110,9 +124,9 @@ return (
           className="login-input"
         />
 
-        <button type="submit" className="login-btn">
-          로그인
-        </button>
+<button type="submit" className="login-btn" disabled={loginLoading}>
+  {loginLoading ? '로그인 중...' : '로그인'}
+</button>
 
         <div className="login-footer">
           계정이 없으신가요?{' '}
@@ -199,6 +213,11 @@ return (
       </form>
     </div>
   </div>
+)}
+{(loginLoading || signupLoading) && (
+  <LoadingOverlay
+    text={loginLoading ? "로그인 중입니다..." : "회원가입 처리 중입니다..."}
+  />
 )}
   </div>
 );

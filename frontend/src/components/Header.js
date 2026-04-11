@@ -11,8 +11,17 @@ export default function Header() {
   const [ openModal, setOpenModal ] = useState(false);
   const navigate = useNavigate();
 
-  const logout = () => {
-  sessionStorage.removeItem('user');
+const logout = () => {
+  Object.keys(sessionStorage).forEach((key) => {
+    if (
+      key === 'user' ||
+      key.startsWith('result-') ||
+      key.startsWith('solved-')
+    ) {
+      sessionStorage.removeItem(key);
+    }
+  });
+
   setUser(null);
   navigate('/');
 };
@@ -64,29 +73,80 @@ useEffect(() => {
             )}
           </button>
 
-          {user && (
-      <div className="profile">
+{user && (
+  <div className="profile">
+    <button
+      className={`profile-btn ${openModal ? 'active' : ''}`}
+      onClick={() => setOpenModal((prev) => !prev)}
+    >
+      <div className="profile-avatar">
+        {user.name?.charAt(0) || 'U'}
+      </div>
+      <div className="profile-meta">
+        <span className="profile-name">{user.name}</span>
+        <span className="profile-role">
+          {user.role === 'ADMIN' ? '관리자' : '사용자'}
+        </span>
+      </div>
+      <svg
+        className={`profile-arrow ${openModal ? 'open' : ''}`}
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <polyline points="6 9 12 15 18 9" />
+      </svg>
+    </button>
+
+    {openModal && (
+      <div className="dropdown">
+        <div className="dropdown-user">
+          <div className="dropdown-avatar">
+            {user.name?.charAt(0) || 'U'}
+          </div>
+          <div className="dropdown-user-info">
+            <div className="dropdown-user-name">{user.name}</div>
+            <div className="dropdown-user-role">
+              {user.role === 'ADMIN' ? '관리자 계정' : '일반 사용자'}
+            </div>
+          </div>
+        </div>
+
+        <div className="dropdown-divider" />
+
         <button
-          className="profile-btn"
-          onClick={() => setOpenModal(prev => !prev)}
+          className="dropdown-btn"
+          onClick={() => {
+            setOpenModal(false);
+            navigate('/results');
+          }}
         >
-          👤
+          <span className="dropdown-btn-icon">📊</span>
+          <span>결과 확인</span>
         </button>
 
-        {openModal && (
-          <div className="dropdown">
-            <div className="dropdown-item">{user.id}</div>
-        
-            <button
-              className="dropdown-btn logout"
-              onClick={logout}
-            >
-              로그아웃
-            </button>
-          </div>
-        )}
+        <button
+          className="dropdown-btn logout"
+          onClick={logout}
+        >
+          <span className="dropdown-btn-icon">↪</span>
+          <span>로그아웃</span>
+        </button>
       </div>
-          )}
+    )}
+  </div>
+)}
+
+
+
+{user?.role === 'ADMIN' && (
+  <button className="nav-btn admin-nav-btn" onClick={() => navigate('/admin')}>
+    문제출제
+  </button>
+)}
         </div>
       </div>
     </header>
