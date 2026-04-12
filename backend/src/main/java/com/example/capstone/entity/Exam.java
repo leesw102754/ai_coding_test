@@ -16,4 +16,6 @@ public class Exam {
 
     @Column(columnDefinition = "TEXT")
     private String description; // 시험 문제 내용 (길 수도 있으니 TEXT 타입으로)
+
+    private String difficulty;
 }

@@ -56,16 +56,17 @@ public class ExamApiController {
         return examRepository.findById(id).orElseThrow();
     }
 
-    @PatchMapping("/exams/{id}")
-    public Exam updateExam(@PathVariable Long id, @RequestBody Exam request) {
-        Exam exam = examRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("문제를 찾을 수 없습니다."));
+@PatchMapping("/exams/{id}")
+public Exam updateExam(@PathVariable Long id, @RequestBody Exam request) {
+    Exam exam = examRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("문제를 찾을 수 없습니다."));
 
-        if (request.getTitle() != null) exam.setTitle(request.getTitle());
-        if (request.getDescription() != null) exam.setDescription(request.getDescription());
+    if (request.getTitle() != null) exam.setTitle(request.getTitle());
+    if (request.getDescription() != null) exam.setDescription(request.getDescription());
+    if (request.getDifficulty() != null) exam.setDifficulty(request.getDifficulty());
 
-        return examRepository.save(exam);
-    }
+    return examRepository.save(exam);
+}
 
     // [관리자] 시험 문제 삭제
     @DeleteMapping("/exams/{id}")
