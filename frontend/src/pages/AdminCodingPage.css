@@ -187,10 +187,10 @@
   margin: 6px 0 0;
   padding: 12px;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.35);   /* 더 진하게 */
+  background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: #e5e7eb;
-  font-family: 'JetBrains Mono', monospace;  /* 코드 느낌 */
+  font-family: 'JetBrains Mono', monospace;
   font-size: 0.9rem;
   white-space: pre-wrap;
   word-break: break-word;
@@ -217,4 +217,22 @@
 .admincodingpage-remove-btn:hover {
   opacity: 0.96;
   transform: translateY(-1px);
+}
+
+.admincodingpage-select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.admincodingpage-select:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }

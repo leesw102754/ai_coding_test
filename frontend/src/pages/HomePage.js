@@ -3,8 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { useProblem } from '../context/ProblemContext';
 import './HomePage.css';
 
-const difficultyLabel = { easy: '쉬움', medium: '보통', hard: '어려움' };
-const difficultyClass = { easy: 'tag-easy', medium: 'tag-medium', hard: 'tag-hard' };
+const difficultyLabel = {
+  easy: '쉬움',
+  medium: '보통',
+  hard: '어려움',
+  쉬움: '쉬움',
+  보통: '보통',
+  어려움: '어려움',
+};
+
+const difficultyClass = {
+  easy: 'tag-easy',
+  medium: 'tag-medium',
+  hard: 'tag-hard',
+  쉬움: 'tag-easy',
+  보통: 'tag-medium',
+  어려움: 'tag-hard',
+};
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -44,9 +59,9 @@ const computedStats = {
   solved: problemsWithStatus.filter((p) => p.solved).length,
   submitted: problemsWithStatus.filter((p) => p.submitted).length,
   unsolved: problemsWithStatus.filter((p) => p.submitted && !p.solved).length,
-  easy: problemsWithStatus.filter((p) => p.difficulty === 'easy').length,
-  medium: problemsWithStatus.filter((p) => p.difficulty === 'medium').length,
-  hard: problemsWithStatus.filter((p) => p.difficulty === 'hard').length,
+  easy: problemsWithStatus.filter((p) => p.difficulty === 'easy' || p.difficulty === '쉬움').length,
+  medium: problemsWithStatus.filter((p) => p.difficulty === 'medium' || p.difficulty === '보통').length,
+  hard: problemsWithStatus.filter((p) => p.difficulty === 'hard' || p.difficulty === '어려움').length,
 };
 
   const filtered = problemsWithStatus.filter(p => {
@@ -54,12 +69,12 @@ const computedStats = {
       p.title.toLowerCase().includes(search.toLowerCase()) ||
       p.tags.some(t => t.toLowerCase().includes(search.toLowerCase()));
     const matchFilter =
-      filter === 'all' ||
-      (filter === 'easy' && p.difficulty === 'easy') ||
-      (filter === 'medium' && p.difficulty === 'medium') ||
-      (filter === 'hard' && p.difficulty === 'hard') ||
-      (filter === 'solved' && p.solved) ||
-      (filter === 'unsolved' && !p.solved);
+  filter === 'all' ||
+  (filter === 'easy' && (p.difficulty === 'easy' || p.difficulty === '쉬움')) ||
+  (filter === 'medium' && (p.difficulty === 'medium' || p.difficulty === '보통')) ||
+  (filter === 'hard' && (p.difficulty === 'hard' || p.difficulty === '어려움')) ||
+  (filter === 'solved' && p.solved) ||
+  (filter === 'unsolved' && !p.solved);
     return matchSearch && matchFilter;
   });
 
@@ -263,9 +278,9 @@ const computedStats = {
                         <span key={tag} className="tag">{tag}</span>
                       ))}
                     </div>
-                    <span className={`difficulty-badge ${difficultyClass[problem.difficulty]}`}>
-                      {difficultyLabel[problem.difficulty]}
-                    </span>
+			<span className={`difficulty-badge ${difficultyClass[problem.difficulty] || 'tag-easy'}`}>
+ 			 {difficultyLabel[problem.difficulty] || '쉬움'}
+                        </span>
                     <span className="time-limit">{problem.timeLimit}ms</span>
                   </div>
                 </div>

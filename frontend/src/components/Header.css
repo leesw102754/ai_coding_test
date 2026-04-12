@@ -277,3 +277,8 @@
   background: #1d4ed8;
   border-color: #1d4ed8;
 }
+
+.dropdown-btn.admin {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+}

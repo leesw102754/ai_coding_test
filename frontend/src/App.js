@@ -11,21 +11,23 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import AdminPage from './pages/AdminPage';
 import AdminObjectivePage from './pages/AdminObjectivePage';
 import AdminCodingPage from './pages/AdminCodingPage';
+import AdminResultPage from './pages/AdminResultPage';
+import AdminExamManagePage from './pages/AdminExamManagePage';
 import ResultsPage from './pages/ResultsPage';
+
 export default function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
         <ProblemProvider>
           <BrowserRouter>
-            <AppRoutes /> {/* 👈 여기로 분리 */}
+            <AppRoutes />
           </BrowserRouter>
         </ProblemProvider>
       </ThemeProvider>
     </AuthProvider>
   );
 }
-
 
 function AppRoutes() {
   const { user, authLoading } = useAuth();
@@ -49,11 +51,14 @@ function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/problem/:id" element={<ProblemPage />} />
         <Route path="/results" element={<ResultsPage />} />
+
         {user.role === 'ADMIN' && (
           <>
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="/admin/objective" element={<AdminObjectivePage />} />
-          <Route path="/admin/coding" element={<AdminCodingPage />} />
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/admin/objective" element={<AdminObjectivePage />} />
+            <Route path="/admin/coding" element={<AdminCodingPage />} />
+            <Route path="/admin/results" element={<AdminResultPage />} />
+            <Route path="/admin/exams" element={<AdminExamManagePage />} />
           </>
         )}
 

@@ -17,6 +17,15 @@ import {
 export default function ResultsPage() {
   const { problems } = useProblem();
 
+const difficultyLabelMap = {
+  easy: '쉬움',
+  medium: '보통',
+  hard: '어려움',
+  쉬움: '쉬움',
+  보통: '보통',
+  어려움: '어려움',
+};
+
   const resultList = useMemo(() => {
     return problems
       .map((problem) => {
@@ -199,7 +208,7 @@ return (
                 <div>
                   <div className="result-problem-title">{item.title}</div>
                   <div className="result-meta">
-                    난이도: {item.difficulty} · 오류유형: {item.errorType || '없음'}
+                    난이도: {difficultyLabelMap[item.difficulty] || '쉬움'} · 오류유형: {item.errorType || '없음'}
                   </div>
                 </div>
 

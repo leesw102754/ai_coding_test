@@ -4,13 +4,15 @@ import Editor from '@monaco-editor/react';
 import { useProblem } from '../context/ProblemContext';
 import { useTheme } from '../context/ThemeContext';
 import './ProblemPage.css';
-import { submitExam, getTestCasesByExamId } from '../api/problemApi';
+import { submitExam } from '../api/problemApi';
 import LoadingOverlay from '../components/LoadingOverlay';
 
 const LANGUAGES = [
   { id: 'javascript', label: 'JavaScript' },
-  { id: 'python', label: 'Python' },
   { id: 'java', label: 'Java' },
+  { id: 'python', label: 'Python' },
+  { id: 'c', label: 'C' },
+  { id: 'cpp', label: 'C++' },
 ];
 
 export default function ProblemPage() {
@@ -35,8 +37,6 @@ export default function ProblemPage() {
   const [submitResult, setSubmitResult] = useState(null);
   const [timer, setTimer] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [testCases, setTestCases] = useState([]);
-
   const timerRef = useRef(null);
   const warningRef = useRef(false);
 
@@ -71,22 +71,6 @@ export default function ProblemPage() {
 
     return () => clearInterval(timerRef.current);
   }, [examStarted]);
-
-  useEffect(() => {
-    const fetchTestCases = async () => {
-      try {
-        const data = await getTestCasesByExamId(id);
-        setTestCases(Array.isArray(data) ? data : []);
-      } catch (e) {
-        console.error('테스트케이스 불러오기 실패', e);
-        setTestCases([]);
-      }
-    };
-
-    if (id) {
-      fetchTestCases();
-    }
-  }, [id]);
 
   const formatTime = (s) => {
     const m = Math.floor(s / 60);
@@ -187,6 +171,14 @@ export default function ProblemPage() {
   }, [examStarted]);
 
   const startExam = () => {
+    if (problem) {
+      LANGUAGES.forEach((lang) => {
+        localStorage.removeItem(`codetest-code-${problem.id}-${lang.id}`);
+      });
+
+      setCode(problem.starterCode?.[language] || '');
+    }
+
     setExamStarted(true);
     setTimer(0);
     enterFullscreen();
@@ -224,51 +216,19 @@ export default function ProblemPage() {
 
     setTimeout(() => {
       try {
-        if (language === 'javascript') {
-          const results = testCases.map((tc, i) => {
-            try {
-              return {
-                id: i + 1,
-                input: tc.input,
-                expected: tc.expectedOutput,
-                actual: '실행 완료',
-                passed: true,
-              };
-            } catch (err) {
-              return {
-                id: i + 1,
-                input: tc.input,
-                expected: tc.expectedOutput,
-                actual: `오류: ${err.message}`,
-                passed: false,
-              };
-            }
-          });
+        setOutput(
+          `[${language.toUpperCase()}] 로컬 미리보기입니다.\n실제 테스트케이스 검증 및 채점은 제출 후 서버에서 처리됩니다.`
+        );
 
-          setTestResults(results);
-          setOutput(
-            results
-              .map(
-                (r) =>
-                  `테스트 ${r.id}: ${r.passed ? '✓ 통과' : '✗ 실패'}\n입력: ${r.input}\n기대값: ${r.expected}\n결과: ${r.actual}`
-              )
-              .join('\n\n')
-          );
-        } else {
-          setOutput(
-            `[${language.toUpperCase()}] 로컬 미리보기는 제한됩니다.\n실제 채점은 제출 후 서버에서 처리됩니다.`
-          );
-
-          setTestResults(
-            testCases.map((tc, i) => ({
-              id: i + 1,
-              input: tc.input,
-              expected: tc.expectedOutput,
-              actual: '서버 채점 필요',
-              passed: null,
-            }))
-          );
-        }
+        setTestResults(
+          problem.testCases.map((tc, i) => ({
+            id: i + 1,
+            input: tc.input,
+            expected: tc.expected,
+            actual: '미리보기 완료 (실제 채점은 서버에서 처리)',
+            passed: 'preview',
+          }))
+        );
       } catch (err) {
         setOutput(`실행 오류: ${err.message}`);
       }
@@ -342,11 +302,16 @@ export default function ProblemPage() {
     );
   }
 
-  const diffMap = {
-    easy: { label: '쉬움', cls: 'tag-easy' },
-    medium: { label: '보통', cls: 'tag-medium' },
-    hard: { label: '어려움', cls: 'tag-hard' },
-  };
+const diffMap = {
+  easy: { label: '쉬움', cls: 'tag-easy' },
+  medium: { label: '보통', cls: 'tag-medium' },
+  hard: { label: '어려움', cls: 'tag-hard' },
+
+  // 🔥 추가 (한글 대응)
+  쉬움: { label: '쉬움', cls: 'tag-easy' },
+  보통: { label: '보통', cls: 'tag-medium' },
+  어려움: { label: '어려움', cls: 'tag-hard' },
+};
 
   return (
     <div className={`problem-page ${examStarted ? 'exam-mode' : ''}`}>
@@ -408,8 +373,8 @@ export default function ProblemPage() {
           <div className="exam-problem-info">
             <span className="exam-number">{problem.number}</span>
             <span className="exam-title">{problem.title}</span>
-            <span className={`difficulty-badge ${diffMap[problem.difficulty].cls}`}>
-              {diffMap[problem.difficulty].label}
+<span className={`difficulty-badge ${diffMap[problem.difficulty]?.cls || 'tag-easy'}`}>
+  {diffMap[problem.difficulty]?.label || '쉬움'}
             </span>
           </div>
         </div>
@@ -504,58 +469,53 @@ export default function ProblemPage() {
 
             {activeTab === 'testcases' && (
               <div className="testcases-content">
-                {testCases.length > 0 ? (
-                  testCases.map((tc, i) => (
-                    <div key={i} className="testcase-card">
-                      <div className="testcase-header">
-                        <span className="testcase-num">테스트 {i + 1}</span>
-                        {testResults[i] && (
-                          <span
-                            className={`testcase-result ${
-                              testResults[i].passed === true
-                                ? 'passed'
-                                : testResults[i].passed === false
-                                ? 'failed'
-                                : 'pending'
-                            }`}
-                          >
-                            {testResults[i].passed === true
-                              ? '✓ 통과'
-                              : testResults[i].passed === false
-                              ? '✗ 실패'
-                              : '대기'}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="testcase-row">
-                        <span className="tc-label">입력</span>
-                        <code className="tc-value">{tc.input}</code>
-                      </div>
-
-                      <div className="testcase-row">
-                        <span className="tc-label">기대값</span>
-                        <code className="tc-value">{tc.expectedOutput}</code>
-                      </div>
-
+                {problem.testCases.map((tc, i) => (
+                  <div key={i} className="testcase-card">
+                    <div className="testcase-header">
+                      <span className="testcase-num">테스트 {i + 1}</span>
                       {testResults[i] && (
-                        <div className="testcase-row">
-                          <span className="tc-label">실제값</span>
-                          <code className={`tc-value ${testResults[i].passed === false ? 'tc-error' : ''}`}>
-                            {testResults[i].actual}
-                          </code>
-                        </div>
+                        <span
+                          className={`testcase-result ${
+                            testResults[i].passed === true
+                              ? 'passed'
+                              : testResults[i].passed === false
+                              ? 'failed'
+                              : testResults[i].passed === 'preview'
+                              ? 'passed'
+                              : 'pending'
+                          }`}
+                        >
+                          {testResults[i].passed === true
+                            ? '✓ 통과'
+                            : testResults[i].passed === false
+                            ? '✗ 실패'
+                            : testResults[i].passed === 'preview'
+                            ? '✓ 완료'
+                            : '대기'}
+                        </span>
                       )}
                     </div>
-                  ))
-                ) : (
-                  <div className="testcase-card">
+
                     <div className="testcase-row">
-                      <span className="tc-label">안내</span>
-                      <code className="tc-value">등록된 테스트케이스가 없습니다.</code>
+                      <span className="tc-label">입력</span>
+                      <code className="tc-value">{tc.input}</code>
                     </div>
+
+                    <div className="testcase-row">
+                      <span className="tc-label">기대값</span>
+                      <code className="tc-value">{tc.expected}</code>
+                    </div>
+
+                    {testResults[i] && (
+                      <div className="testcase-row">
+                        <span className="tc-label">실제값</span>
+                        <code className={`tc-value ${testResults[i].passed === false ? 'tc-error' : ''}`}>
+                          {testResults[i].actual}
+                        </code>
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
             )}
           </div>
@@ -579,9 +539,10 @@ export default function ProblemPage() {
               <button
                 className="btn-reset"
                 onClick={() => {
-                  if (window.confirm('코드를 초기화하시겠습니까?')) {
-                    setCode(problem.starterCode?.[language] || '');
-                  }
+                  localStorage.removeItem(`codetest-code-${problem.id}-${language}`);
+                  setCode(problem.starterCode?.[language] || '');
+                  setOutput('현재 언어 코드가 초기화되었습니다.');
+                  setTestResults([]);
                 }}
               >
                 초기화

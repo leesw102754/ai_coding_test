@@ -3,12 +3,13 @@ import { createExam, createTestCase } from '../api/problemApi';
 import './AdminCodingPage.css';
 
 export default function AdminCodingPage() {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+const [title, setTitle] = useState('');
+const [description, setDescription] = useState('');
+const [difficulty, setDifficulty] = useState('easy');
 
-  const [testInput, setTestInput] = useState('');
-  const [expectedOutput, setExpectedOutput] = useState('');
-  const [testCases, setTestCases] = useState([]);
+const [testInput, setTestInput] = useState('');
+const [expectedOutput, setExpectedOutput] = useState('');
+const [testCases, setTestCases] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -21,7 +22,7 @@ export default function AdminCodingPage() {
 
     const newTestCase = {
       input: testInput,
-      expectedOutput: expectedOutput,
+      expectedOutput,
     };
 
     setTestCases((prev) => [...prev, newTestCase]);
@@ -51,10 +52,10 @@ export default function AdminCodingPage() {
       setLoading(true);
       setMessage('');
 
-      // 1. 문제 등록
       const createdExam = await createExam({
         title,
         description,
+	difficulty,
       });
 
       const examId = createdExam.id;
@@ -63,7 +64,6 @@ export default function AdminCodingPage() {
         throw new Error('문제 등록 후 examId를 받지 못했습니다.');
       }
 
-      // 2. 테스트케이스 등록
       for (const tc of testCases) {
         await createTestCase({
           examId,
@@ -73,10 +73,9 @@ export default function AdminCodingPage() {
       }
 
       setMessage('문제와 테스트케이스가 모두 등록되었습니다.');
-
-      // 초기화
       setTitle('');
       setDescription('');
+      setDifficulty('easy');
       setTestInput('');
       setExpectedOutput('');
       setTestCases([]);
@@ -118,6 +117,19 @@ export default function AdminCodingPage() {
               rows={8}
             />
           </div>
+
+	<div className="admincodingpage-form-group">
+ 	 <label className="admincodingpage-label">난이도</label>
+ 	 <select
+ 	   className="admincodingpage-select"
+  	   value={difficulty}
+  	   onChange={(e) => setDifficulty(e.target.value)}
+	  >
+ 	   <option value="easy">쉬움</option>
+ 	   <option value="medium">보통</option>
+ 	   <option value="hard">어려움</option>
+	  </select>
+	</div>
 
           <div className="admincodingpage-testcase-section">
             <h3 className="admincodingpage-testcase-title">테스트케이스 추가</h3>

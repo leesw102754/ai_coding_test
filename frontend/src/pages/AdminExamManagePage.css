@@ -1,0 +1,348 @@
+.admin-exam-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.admin-exam-header {
+  margin-bottom: 20px;
+}
+
+.admin-exam-header h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.admin-exam-header p {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.admin-exam-layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 20px;
+}
+
+.admin-exam-list-panel,
+.admin-exam-detail-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 18px;
+  min-height: 620px;
+}
+
+.admin-exam-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.admin-exam-title-row h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.admin-exam-count-badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.admin-exam-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-exam-search {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-exam-search::placeholder {
+  color: var(--text-muted);
+}
+
+.admin-exam-search:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.admin-exam-filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-exam-filter-btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-exam-filter-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.admin-exam-filter-btn.active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: white;
+}
+
+.admin-exam-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 540px;
+  overflow-y: auto;
+}
+
+.admin-exam-card {
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-exam-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-blue);
+  transform: translateY(-1px);
+}
+
+.admin-exam-card.active {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.admin-exam-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.admin-exam-id {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-family: var(--font-code);
+}
+
+.admin-exam-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.admin-exam-card-desc {
+  font-size: 0.87rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.admin-exam-difficulty {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.admin-exam-difficulty.easy {
+  background: rgba(34, 197, 94, 0.14);
+  color: #16a34a;
+}
+
+.admin-exam-difficulty.medium {
+  background: rgba(245, 158, 11, 0.14);
+  color: #d97706;
+}
+
+.admin-exam-difficulty.hard {
+  background: rgba(239, 68, 68, 0.14);
+  color: #dc2626;
+}
+
+.admin-exam-detail-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.admin-exam-btn-edit,
+.admin-exam-btn-delete,
+.admin-exam-btn-save,
+.admin-exam-btn-cancel {
+  height: 38px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: 0.2s ease;
+}
+
+.admin-exam-btn-edit {
+  background: #2563eb;
+  color: white;
+}
+
+.admin-exam-btn-edit:hover,
+.admin-exam-btn-save:hover {
+  opacity: 0.9;
+}
+
+.admin-exam-btn-delete {
+  background: #ef4444;
+  color: white;
+}
+
+.admin-exam-btn-delete:hover {
+  opacity: 0.9;
+}
+
+.admin-exam-btn-save {
+  background: #16a34a;
+  color: white;
+}
+
+.admin-exam-btn-cancel {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.admin-exam-btn-cancel:hover {
+  background: var(--bg-hover);
+}
+
+.admin-exam-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-exam-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-exam-form-group span {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.admin-exam-form-group input,
+.admin-exam-form-group textarea {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 12px 14px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.admin-exam-form-group input:focus,
+.admin-exam-form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.admin-exam-form-group input:disabled,
+.admin-exam-form-group textarea:disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+.admin-exam-empty-box {
+  min-height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  text-align: center;
+  border: 1px dashed var(--border-color);
+  border-radius: 14px;
+}
+
+@media (max-width: 1024px) {
+  .admin-exam-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-exam-list-panel,
+  .admin-exam-detail-panel {
+    min-height: auto;
+  }
+
+  .admin-exam-list {
+    max-height: 320px;
+  }
+}
+
+.admin-exam-form-group select,
+.admin-exam-select {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  padding: 12px 14px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.admin-exam-form-group select:focus,
+.admin-exam-select:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.admin-exam-form-group select:disabled,
+.admin-exam-select:disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: default;
+}
