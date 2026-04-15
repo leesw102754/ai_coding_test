@@ -11,6 +11,7 @@ import {
   YAxis,
   CartesianGrid,
   Legend,
+  LabelList,
 } from 'recharts';
 import { getAllSubmissions, getSubmissionDetail } from '../api/problemApi';
 import './AdminResultPage.css';
@@ -68,7 +69,9 @@ export default function AdminResultPage() {
   }, [submissions, search, languageFilter]);
 
   const stats = useMemo(() => {
-    const uniqueStudents = new Set(submissions.map((s) => s.studentId)).size;
+    const uniqueStudents = new Set(
+      submissions.map((s) => s.studentId).filter(Boolean)
+    ).size;
 
     const languageCount = submissions.reduce((acc, cur) => {
       const lang = cur.language || 'unknown';
@@ -82,7 +85,10 @@ export default function AdminResultPage() {
     }));
 
     const hourlyCount = submissions.reduce((acc, cur) => {
+      if (!cur.submitTime) return acc;
       const date = new Date(cur.submitTime);
+      if (Number.isNaN(date.getTime())) return acc;
+
       const hour = `${String(date.getHours()).padStart(2, '0')}시`;
       acc[hour] = (acc[hour] || 0) + 1;
       return acc;
@@ -106,8 +112,8 @@ export default function AdminResultPage() {
   const feedbackStatusData = useMemo(() => {
     const counter = submissions.reduce(
       (acc, cur) => {
-        const type = cur.ai_feedback?.error_type;
-        if (type === 'accepted') acc.accepted += 1;
+        const isCorrect = cur.correct ?? cur.isCorrect ?? false;
+        if (isCorrect) acc.accepted += 1;
         else acc.notAccepted += 1;
         return acc;
       },
@@ -120,9 +126,44 @@ export default function AdminResultPage() {
     ];
   }, [submissions]);
 
+  const problemAccuracyData = useMemo(() => {
+    const grouped = submissions.reduce((acc, cur) => {
+      const examId = cur.examId;
+      if (examId == null) return acc;
+
+      if (!acc[examId]) {
+        acc[examId] = {
+          examId,
+          total: 0,
+          correct: 0,
+        };
+      }
+
+      acc[examId].total += 1;
+
+      const isCorrect = cur.correct ?? cur.isCorrect ?? false;
+      if (isCorrect) {
+        acc[examId].correct += 1;
+      }
+
+      return acc;
+    }, {});
+
+    return Object.values(grouped)
+      .map((item) => ({
+        examId: item.examId,
+        total: item.total,
+        correct: item.correct,
+        rate: item.total === 0 ? 0 : Math.round((item.correct / item.total) * 100),
+        label: `${item.examId}번`,
+      }))
+      .sort((a, b) => Number(a.examId) - Number(b.examId));
+  }, [submissions]);
+
   const formatDateTime = (value) => {
     if (!value) return '-';
     const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
     return date.toLocaleString('ko-KR');
   };
 
@@ -170,9 +211,10 @@ export default function AdminResultPage() {
                 outerRadius={90}
                 label
               >
-                {stats.languageChartData.map((entry, index) => (
-                  <Cell key={index} />
-                ))}
+		{stats.languageChartData.map((entry, index) => {
+  		const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4'];
+ 		 return <Cell key={index} fill={colors[index % colors.length]} />;
+		})}
               </Pie>
               <Tooltip />
               <Legend />
@@ -189,7 +231,7 @@ export default function AdminResultPage() {
               <YAxis allowDecimals={false} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="count" name="제출 수" />
+              <Bar dataKey="count" name="제출 수" fill="#3b82f6" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -205,13 +247,38 @@ export default function AdminResultPage() {
                 outerRadius={90}
                 label
               >
-                {feedbackStatusData.map((entry, index) => (
-                  <Cell key={index} />
-                ))}
+		{feedbackStatusData.map((entry, index) => (
+  		<Cell key={index} fill={index === 0 ? '#22c55e' : '#ef4444'} />
+		))}
               </Pie>
               <Tooltip />
               <Legend />
             </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="chart-card">
+          <h3>문제별 정답률</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={problemAccuracyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="label" />
+              <YAxis domain={[0, 100]} allowDecimals={false} />
+              <Tooltip
+                formatter={(value, name) => {
+                  if (name === 'rate') return [`${value}%`, '정답률'];
+                  return [value, name];
+                }}
+              />
+              <Legend />
+              <Bar dataKey="rate" name="정답률" fill="#22c55e">
+                <LabelList
+                  dataKey="rate"
+                  position="top"
+                  formatter={(value) => `${value}%`}
+                />
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -232,11 +299,11 @@ export default function AdminResultPage() {
                 onChange={(e) => setLanguageFilter(e.target.value)}
               >
                 <option value="all">전체 언어</option>
-		<option value="python">Python</option>
-		<option value="java">Java</option>
-		<option value="javascript">JavaScript</option>
-		<option value="c">C</option>
-		<option value="cpp">C++</option>
+                <option value="python">Python</option>
+                <option value="java">Java</option>
+                <option value="javascript">JavaScript</option>
+                <option value="c">C</option>
+                <option value="cpp">C++</option>
               </select>
             </div>
           </div>
@@ -255,24 +322,32 @@ export default function AdminResultPage() {
                     <th>학번</th>
                     <th>이름</th>
                     <th>언어</th>
+                    <th>정답 여부</th>
                     <th>제출 시간</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSubmissions.map((item) => (
-                    <tr
-                      key={item.id}
-                      className={selectedId === item.id ? 'active' : ''}
-                      onClick={() => handleSelectSubmission(item.id)}
-                    >
-                      <td>{item.id}</td>
-                      <td>{item.examId}</td>
-                      <td>{item.studentId}</td>
-                      <td>{item.studentName}</td>
-                      <td>{item.language}</td>
-                      <td>{formatDateTime(item.submitTime)}</td>
-                    </tr>
-                  ))}
+                  {filteredSubmissions.map((item) => {
+                    const isCorrect = item.correct ?? item.isCorrect ?? false;
+
+                    return (
+                      <tr
+                        key={item.id}
+                        className={selectedId === item.id ? 'active' : ''}
+                        onClick={() => handleSelectSubmission(item.id)}
+                      >
+                        <td>{item.id}</td>
+                        <td>{item.examId}</td>
+                        <td>{item.studentId}</td>
+                        <td>{item.studentName}</td>
+                        <td>{item.language}</td>
+                        <td style={{ color: isCorrect ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
+                          {isCorrect ? '✅ 정답' : '❌ 오답'}
+                        </td>
+                        <td>{formatDateTime(item.submitTime)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -304,11 +379,11 @@ export default function AdminResultPage() {
 
               <div className="detail-card">
                 <h4>AI 피드백</h4>
-                <p><strong>오류 유형:</strong> {selectedSubmission.ai_feedback?.error_type || '-'}</p>
-                <p><strong>요약:</strong> {selectedSubmission.ai_feedback?.summary || '-'}</p>
-                <p><strong>오류 원인:</strong> {selectedSubmission.ai_feedback?.wrong_reason || '-'}</p>
-                <p><strong>해결 방향:</strong> {selectedSubmission.ai_feedback?.solution_direction || '-'}</p>
-                <p><strong>개선 피드백:</strong> {selectedSubmission.ai_feedback?.improvement_feedback || '-'}</p>
+                <p><strong>오류 유형:</strong> {selectedSubmission.status || '-'}</p>
+                <p><strong>요약:</strong> {selectedSubmission.aiSummary || '-'}</p>
+                <p><strong>오류 원인:</strong> {selectedSubmission.aiWrongReason || '-'}</p>
+                <p><strong>해결 방향:</strong> {selectedSubmission.aiSolutionDirection || '-'}</p>
+                <p><strong>개선 피드백:</strong> {selectedSubmission.aiImprovement || '-'}</p>
               </div>
             </div>
           )}

@@ -85,23 +85,36 @@ public Exam updateExam(@PathVariable Long id, @RequestBody Exam request) {
 
         try {
             aiResponse = aiService.analyzeSubmission(savedSubmission);
+
+            if (aiResponse != null) {
+                savedSubmission.setStatus(aiResponse.getErrorType());            // 상태 저장
+                savedSubmission.setAiSummary(aiResponse.getSummary());          // 요약 저장
+                savedSubmission.setAiWrongReason(aiResponse.getWrongReason());  // 틀린 이유 저장
+                savedSubmission.setAiSolutionDirection(aiResponse.getSolutionDirection()); // 해결 방향 저장
+                savedSubmission.setAiImprovement(aiResponse.getImprovementFeedback());     // 개선 피드백 저장
+
+                submissionRepository.save(savedSubmission);
+            }
         } catch (Exception e) {
             System.out.println("AI 호출 실패: " + e.getMessage());
         }
 
         Map<String, Object> result = new HashMap<>();
         result.put("message", "제출 완료");
-        result.put("submission", savedSubmission);
+        result.put("submission", savedSubmission); // 이제 이 안에는 AI 피드백이 포함되어 있습니다.
         result.put("ai_feedback", aiResponse);
 
         return result;
     }
 
-    @GetMapping("/submissions")
-    public List<Submission> getAllSubmissions() {
-        // 최신 제출순으로 보고 싶다면 리포지토리에 메서드를 추가하거나 직접 정렬하세요.
-        return submissionRepository.findAll();
-    }
+@GetMapping("/submissions")
+public List<com.example.capstone.dto.SubmissionResponse> getAllSubmissions() {
+    return submissionRepository.findAll()
+            .stream()
+            .sorted(Comparator.comparing(Submission::getSubmitTime).reversed())
+            .map(com.example.capstone.dto.SubmissionResponse::new)
+            .toList();
+}
 
     // [관리자/학생] 특정 제출 내역 상세 보기 (AI 피드백 포함)
     @GetMapping("/submissions/{id}")

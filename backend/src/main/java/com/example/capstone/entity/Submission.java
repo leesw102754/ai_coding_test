@@ -25,4 +25,18 @@ public class Submission {
     private String code;        // 학생이 작성한 소스 코드
 
     private LocalDateTime submitTime; // 제출 시간
+
+    @Column(columnDefinition = "TEXT")
+    private String aiSummary;           // 요약
+
+    @Column(columnDefinition = "TEXT")
+    private String aiWrongReason;       // 틀린 이유
+
+    @Column(columnDefinition = "TEXT")
+    private String aiSolutionDirection; // 해결 방향
+
+    @Column(columnDefinition = "TEXT")
+    private String aiImprovement;      // 개선 피드백
+
+    private String status;
 }

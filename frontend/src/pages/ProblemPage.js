@@ -251,12 +251,13 @@ export default function ProblemPage() {
     try {
       const savedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
 
-      const res = await submitExam({
-        examId: problem.id,
-        studentName: savedUser.name,
-        language,
-        code,
-      });
+	const res = await submitExam({
+ 	 examId: problem.id,
+ 	 studentId: savedUser.studentId,
+ 	 studentName: savedUser.name,
+	  language,
+ 	 code,
+	});
 
       setSubmitResult({
         success: true,
