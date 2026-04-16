@@ -7,6 +7,72 @@ export function ProblemProvider({ children }) {
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ 추가된 부분 (핵심)
+  const getStarterCode = (title) => ({
+    javascript: `function solution(input) {
+  // ${title}
+  // 코드를 작성하세요
+
+  return input;
+}
+`,
+
+    python: `def solution(input):
+    # ${title}
+    # 코드를 작성하세요
+
+    return input
+`,
+
+    java: `public class Main {
+    public static String solution(String input) {
+        // ${title}
+        // 코드를 작성하세요
+
+        return input;
+    }
+
+    public static void main(String[] args) {
+        String input = "";
+        System.out.println(solution(input));
+    }
+}
+`,
+
+    c: `#include <stdio.h>
+
+int solution(int input) {
+    // ${title}
+    // 코드를 작성하세요
+
+    return input;
+}
+
+int main() {
+    int input = 0;
+    printf("%d\\n", solution(input));
+    return 0;
+}
+`,
+
+    cpp: `#include <iostream>
+using namespace std;
+
+int solution(int input) {
+    // ${title}
+    // 코드를 작성하세요
+
+    return input;
+}
+
+int main() {
+    int input = 0;
+    cout << solution(input) << endl;
+    return 0;
+}
+`,
+  });
+
   const transformProblem = (p, index = 0) => ({
     id: p.id,
     title: p.title,
@@ -19,11 +85,8 @@ export function ProblemProvider({ children }) {
 
     tags: p.tags || ['이론', '기초'],
 
-    starterCode: {
-      javascript: `// ${p.title}\n// 여기에 코드를 작성하세요\n`,
-      python: `# ${p.title}\n# 여기에 코드를 작성하세요\n`,
-      java: `// ${p.title}\n// 여기에 코드를 작성하세요\n`,
-    },
+    // ✅ 여기 수정됨
+    starterCode: getStarterCode(p.title),
 
     testCases: p.testCases || [
       {
