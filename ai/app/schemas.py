@@ -54,3 +54,34 @@ class AnalyzeCodeResponse(BaseModel):
     wrong_reason: str
     solution_direction: str
     improvement_feedback: str
+
+class GenerateTestCasesRequest(BaseModel):
+    title: str
+    description: str
+    difficulty: Optional[str] = None
+
+
+class RecommendedTestCase(BaseModel):
+    input: str
+    expectedOutput: str
+    description: str = ""
+
+
+class GenerateTestCasesResponse(BaseModel):
+    recommendedTestCases: List[RecommendedTestCase]
+
+class ProblemDraftTestCase(BaseModel):
+    input: str
+    expectedOutput: str
+    description: str = ""
+
+
+class GenerateProblemDraftRequest(BaseModel):
+    prompt: str
+
+
+class GenerateProblemDraftResponse(BaseModel):
+    title: str
+    description: str
+    difficulty: str = "easy"
+    testCases: List[ProblemDraftTestCase]

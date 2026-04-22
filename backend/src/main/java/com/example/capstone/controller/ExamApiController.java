@@ -1,5 +1,9 @@
 package com.example.capstone.controller;
 
+import com.example.capstone.dto.AiProblemDraftRequest;
+import com.example.capstone.dto.AiProblemDraftResponse;
+import com.example.capstone.dto.AiTestCaseRecommendRequest;
+import com.example.capstone.dto.AiTestCaseRecommendResponse;
 import com.example.capstone.dto.BulkSubmissionItem;
 import com.example.capstone.dto.BulkSubmissionRequest;
 import com.example.capstone.dto.BulkSubmissionResultItem;
@@ -36,15 +40,55 @@ public class ExamApiController {
         return examRepository.findAll();
     }
 
-    @PostMapping("/exams")
-    public Exam saveExam(@RequestBody Exam exam) {
-        return examRepository.save(exam);
+@PostMapping("/ai/problems/generate")
+public AiProblemDraftResponse generateAiProblem(@RequestBody AiProblemDraftRequest request) {
+    return aiService.generateProblemDraft(request);
+}
+
+@PostMapping("/ai/testcases/recommend")
+public AiTestCaseRecommendResponse recommendAiTestCases(
+        @RequestBody AiTestCaseRecommendRequest request
+) {
+    return aiService.recommendTestCases(request);
+}
+
+@PostMapping("/exams")
+public Exam saveExam(@RequestBody Exam exam) {
+    if (exam.getSource() == null || exam.getSource().isBlank()) {
+        exam.setSource("manual");
+    } else {
+        exam.setSource(exam.getSource().trim());
     }
 
-    @PostMapping("/testcases")
-    public TestCase saveTestCase(@RequestBody TestCase testCase) {
-    return testCaseRepository.save(testCase);
+    return examRepository.save(exam);
+}
+
+@PostMapping("/testcases")
+public TestCase saveTestCase(@RequestBody TestCase testCase) {
+    if (testCase.getSource() == null || testCase.getSource().isBlank()) {
+        testCase.setSource("manual");
+    } else {
+        testCase.setSource(testCase.getSource().trim());
     }
+
+    if (testCase.getDescription() == null || testCase.getDescription().isBlank()) {
+        if ("manual".equals(testCase.getSource())) {
+            testCase.setDescription("수동 입력 케이스");
+        } else {
+            testCase.setDescription("AI 생성 케이스");
+        }
+    }
+
+    if (testCase.getInput() != null) {
+        testCase.setInput(testCase.getInput().trim());
+    }
+
+    if (testCase.getExpectedOutput() != null) {
+        testCase.setExpectedOutput(testCase.getExpectedOutput().trim());
+    }
+
+    return testCaseRepository.save(testCase);
+}
 
     @GetMapping("/exams/{id}/testcases")
     public List<TestCase> getTestCases(@PathVariable Long id) {
@@ -61,9 +105,27 @@ public Exam updateExam(@PathVariable Long id, @RequestBody Exam request) {
     Exam exam = examRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("문제를 찾을 수 없습니다."));
 
-    if (request.getTitle() != null) exam.setTitle(request.getTitle());
-    if (request.getDescription() != null) exam.setDescription(request.getDescription());
-    if (request.getDifficulty() != null) exam.setDifficulty(request.getDifficulty());
+    if (request.getTitle() != null) {
+        exam.setTitle(request.getTitle().trim());
+    }
+
+    if (request.getDescription() != null) {
+        exam.setDescription(request.getDescription().trim());
+    }
+
+    if (request.getDifficulty() != null) {
+        exam.setDifficulty(request.getDifficulty().trim());
+    }
+
+    if (request.getSource() != null && !request.getSource().isBlank()) {
+        exam.setSource(request.getSource().trim());
+    } else {
+        if ("ai".equals(exam.getSource())) {
+            exam.setSource("ai_edited");
+        } else if (exam.getSource() == null || exam.getSource().isBlank()) {
+            exam.setSource("manual");
+        }
+    }
 
     return examRepository.save(exam);
 }

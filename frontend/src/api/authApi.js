@@ -27,3 +27,15 @@ export const signup = async ({ username, password, name, studentId }) => {
 
   return res.data;
 };
+
+// 아이디 중복 확인
+export const checkUsername = async (username) => {
+  const res = await API.get(`/check-username/${username}`);
+  return res.data;
+};
+
+// 학번 중복 확인
+export const checkStudentId = async (studentId) => {
+  const res = await API.get(`/check-studentid/${studentId}`);
+  return res.data;
+};

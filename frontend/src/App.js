@@ -14,6 +14,8 @@ import AdminCodingPage from './pages/AdminCodingPage';
 import AdminResultPage from './pages/AdminResultPage';
 import AdminExamManagePage from './pages/AdminExamManagePage';
 import ResultsPage from './pages/ResultsPage';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function App() {
   return (
@@ -22,10 +24,17 @@ export default function App() {
         <ProblemProvider>
           <BrowserRouter>
             <AppRoutes />
+                  <ToastContainer
+              position="top-center"
+              autoClose={2000}
+              pauseOnHover
+              closeOnClick
+            />
           </BrowserRouter>
         </ProblemProvider>
       </ThemeProvider>
     </AuthProvider>
+    
   );
 }
 

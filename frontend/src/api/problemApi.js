@@ -24,6 +24,16 @@ export const createTestCase = async (data) => {
   return res.data;
 };
 
+export const recommendAiTestCases = async (data) => {
+  const res = await API.post('/ai/testcases/recommend', data);
+  return res.data;
+};
+
+export const generateAiProblemDraft = async (data) => {
+  const res = await API.post('/ai/problems/generate', data);
+  return res.data;
+};
+
 export const getTestCasesByExamId = async (examId) => {
   const res = await API.get(`/exams/${examId}/testcases`);
   return res.data;

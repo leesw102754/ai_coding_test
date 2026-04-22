@@ -12,6 +12,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import com.example.capstone.dto.AiRecommendedTestCase;
+import com.example.capstone.dto.AiTestCaseRecommendRequest;
+import com.example.capstone.dto.AiTestCaseRecommendResponse;
+import com.example.capstone.dto.AiProblemDraftRequest;
+import com.example.capstone.dto.AiProblemDraftResponse;
 
 import java.util.List;
 
@@ -118,4 +123,51 @@ public class AiService {
 
         return response.getBody();
     }
+
+public AiTestCaseRecommendResponse recommendTestCases(AiTestCaseRecommendRequest request) {
+    String aiUrl = "http://127.0.0.1:8000/generate-testcases";
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    headers.set("x-api-key", aiInternalKey);
+
+    HttpEntity<AiTestCaseRecommendRequest> entity = new HttpEntity<>(request, headers);
+
+    ResponseEntity<AiTestCaseRecommendResponse> response = restTemplate.exchange(
+            aiUrl,
+            HttpMethod.POST,
+            entity,
+            AiTestCaseRecommendResponse.class
+    );
+
+    if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+        throw new RuntimeException("AI 테스트케이스 추천 실패");
+    }
+
+    return response.getBody();
+}
+
+public AiProblemDraftResponse generateProblemDraft(AiProblemDraftRequest request) {
+    String aiUrl = "http://127.0.0.1:8000/generate-problem-draft";
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    headers.set("x-api-key", aiInternalKey);
+
+    HttpEntity<AiProblemDraftRequest> entity = new HttpEntity<>(request, headers);
+
+    ResponseEntity<AiProblemDraftResponse> response = restTemplate.exchange(
+            aiUrl,
+            HttpMethod.POST,
+            entity,
+            AiProblemDraftResponse.class
+    );
+
+    if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+        throw new RuntimeException("AI 문제 초안 생성 실패");
+    }
+
+    return response.getBody();
+}
+
 }

@@ -18,4 +18,6 @@ public class Exam {
     private String description; // 시험 문제 내용 (길 수도 있으니 TEXT 타입으로)
 
     private String difficulty;
+
+    private String source; // manual or ai
 }

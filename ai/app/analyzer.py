@@ -4,8 +4,13 @@ import json
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from app.schemas import AnalyzeCodeRequest, AnalyzeCodeResponse
-from app.prompt_builder import build_analysis_prompt
+from app.schemas import (
+    AnalyzeCodeRequest,
+    AnalyzeCodeResponse,
+    GenerateProblemDraftRequest,
+    GenerateProblemDraftResponse,
+)
+from app.prompt_builder import build_analysis_prompt, build_problem_draft_prompt
 
 load_dotenv()
 
@@ -54,6 +59,60 @@ ANALYSIS_JSON_SCHEMA = {
     }
 }
 
+PROBLEM_DRAFT_JSON_SCHEMA = {
+    "name": "problem_draft_result",
+    "schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "title": {"type": "string"},
+            "description": {"type": "string"},
+            "difficulty": {
+                "type": "string",
+                "enum": ["easy", "medium", "hard"]
+            },
+            "testCases": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "input": {"type": "string"},
+                        "expectedOutput": {"type": "string"},
+                        "description": {"type": "string"}
+                    },
+                    "required": ["input", "expectedOutput", "description"]
+                }
+            }
+        },
+        "required": ["title", "description", "difficulty", "testCases"]
+    }
+}
+
+TESTCASE_JSON_SCHEMA = {
+    "name": "testcase_generation_result",
+    "schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "recommendedTestCases": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "input": {"type": "string"},
+                        "expectedOutput": {"type": "string"},
+                        "description": {"type": "string"}
+                    },
+                    "required": ["input", "expectedOutput", "description"]
+                }
+            }
+        },
+        "required": ["recommendedTestCases"]
+    }
+}
+
 
 def normalize_error_type(req: AnalyzeCodeRequest) -> str:
     jr = req.judge_result
@@ -61,11 +120,9 @@ def normalize_error_type(req: AnalyzeCodeRequest) -> str:
     compile_output = (jr.compile_output or "").lower()
     error_type_hint = (jr.error_type_hint or "").lower()
 
-    # 1. accepted
     if jr.status == "accepted":
         return "accepted"
 
-    # 2. compile / syntax
     if jr.status in {"compile_error", "syntax_error"}:
         return "compile"
 
@@ -81,18 +138,15 @@ def normalize_error_type(req: AnalyzeCodeRequest) -> str:
     if "invalid syntax" in stderr or "unexpected eof" in stderr:
         return "compile"
 
-    # 3. index
     if "indexerror" in stderr or "outofbounds" in stderr or "out of range" in stderr:
         return "index"
 
-    # 4. runtime
     if jr.status in {"runtime_error", "timeout", "memory_limit_exceeded", "type_error"}:
         return "runtime"
 
     if error_type_hint in {"runtime", "runtime_error", "timeout_error", "memory_error", "type_error"}:
         return "runtime"
 
-    # 5. logic
     return "logic"
 
 
@@ -134,3 +188,70 @@ def analyze_code(data: AnalyzeCodeRequest) -> AnalyzeCodeResponse:
         parsed["error_type"] = "logic"
 
     return AnalyzeCodeResponse(**parsed)
+
+def generate_problem_draft(data: GenerateProblemDraftRequest) -> GenerateProblemDraftResponse:
+    if not os.getenv("OPENAI_API_KEY"):
+        raise RuntimeError("OPENAI_API_KEY가 설정되지 않았습니다.")
+
+    prompt = build_problem_draft_prompt(data)
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[
+            {
+                "role": "system",
+                "content": "당신은 코딩 시험용 문제 초안을 생성하는 AI입니다."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": PROBLEM_DRAFT_JSON_SCHEMA["name"],
+                "schema": PROBLEM_DRAFT_JSON_SCHEMA["schema"],
+                "strict": True
+            }
+        }
+    )
+
+    raw_text = response.output_text
+    parsed = json.loads(raw_text)
+
+    return GenerateProblemDraftResponse(**parsed)
+
+
+def generate_testcases(data: GenerateTestCasesRequest) -> GenerateTestCasesResponse:
+    if not os.getenv("OPENAI_API_KEY"):
+        raise RuntimeError("OPENAI_API_KEY가 설정되지 않았습니다.")
+
+    prompt = build_testcase_generation_prompt(data)
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[
+            {
+                "role": "system",
+                "content": "당신은 코딩 시험 문제용 테스트케이스를 생성하는 AI입니다."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": TESTCASE_JSON_SCHEMA["name"],
+                "schema": TESTCASE_JSON_SCHEMA["schema"],
+                "strict": True
+            }
+        }
+    )
+
+    raw_text = response.output_text
+    parsed = json.loads(raw_text)
+
+    return GenerateTestCasesResponse(**parsed)

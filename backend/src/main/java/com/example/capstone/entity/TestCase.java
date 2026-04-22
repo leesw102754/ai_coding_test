@@ -19,6 +19,12 @@ public class TestCase {
     @Column(columnDefinition = "TEXT")
     private String expectedOutput;
 
+    private String source; // manual or ai
+
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
     public Long getId() {
         return id;
     }
@@ -45,5 +51,21 @@ public class TestCase {
 
     public void setExpectedOutput(String expectedOutput) {
         this.expectedOutput = expectedOutput;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 }

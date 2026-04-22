@@ -1,4 +1,8 @@
-from app.schemas import AnalyzeCodeRequest
+from app.schemas import (
+    AnalyzeCodeRequest,
+    GenerateTestCasesRequest,
+    GenerateProblemDraftRequest,
+)
 
 
 def build_analysis_prompt(data: AnalyzeCodeRequest, error_type: str) -> str:
@@ -99,5 +103,90 @@ stdout:
 - 정답 코드를 직접 주지 마세요.
 - 출력은 반드시 JSON에 들어갈 수 있는 간결한 문장으로 작성하세요.
 - error_type 필드는 출력하지 마세요.
+"""
+    return prompt.strip()
+
+def build_testcase_generation_prompt(data: GenerateTestCasesRequest) -> str:
+    prompt = f"""
+당신은 웹 기반 코딩 시험 시스템의 테스트케이스 생성 AI입니다.
+
+역할:
+- 문제 제목, 문제 설명, 난이도를 바탕으로 테스트케이스를 추천합니다.
+- 출력은 반드시 JSON 스키마에 맞춰 생성합니다.
+- 각 테스트케이스는 input, expectedOutput, description을 포함해야 합니다.
+- 설명은 반드시 한국어로 짧게 작성합니다.
+- 테스트케이스는 3~5개 생성합니다.
+- 기본 케이스와 엣지 케이스를 함께 포함합니다.
+- 정답 전체 코드는 절대 작성하지 않습니다.
+
+중요 입력 규칙:
+- input은 실제 채점 시스템에서 바로 사용할 수 있는 표준 입력 형태로 작성합니다.
+- 배열 문제라도 [1,2,3] 같은 JSON/배열 표기는 사용하지 않습니다.
+- 공백과 줄바꿈 기반 입력을 우선 사용합니다.
+- 예를 들어 배열 길이 N이 필요하면:
+  5
+  1 2 3 4 5
+  같은 형태를 사용합니다.
+- 빈 배열은 가능하면:
+  0
+  형태로 작성합니다.
+
+문제 제목:
+{data.title}
+
+문제 설명:
+{data.description}
+
+난이도:
+{data.difficulty or "미지정"}
+
+규칙:
+1. 입력 형식은 실제 채점에 바로 쓸 수 있게 작성합니다.
+2. expectedOutput은 정확한 출력값만 작성합니다.
+3. description은 expectedOutput과 모순되면 안 됩니다.
+4. description에 숫자를 쓸 때는 expectedOutput의 값과 반드시 일치해야 합니다.
+5. 0, 음수, 경계값, 중복값, 빈 입력 가능성 등을 반영합니다.
+6. 출력은 반드시 JSON만 반환합니다.
+"""
+    return prompt.strip()
+
+def build_problem_draft_prompt(data: GenerateProblemDraftRequest) -> str:
+    prompt = f"""
+당신은 웹 기반 코딩 시험 시스템의 문제 초안 생성 AI입니다.
+
+역할:
+- 관리자의 한 줄 요청을 바탕으로 코딩 문제 초안을 생성합니다.
+- 반드시 제목, 문제 설명, 난이도, 테스트케이스를 함께 생성합니다.
+- 난이도는 easy, medium, hard 중 하나만 사용합니다.
+- 테스트케이스는 3~5개 생성합니다.
+- 테스트케이스는 input, expectedOutput, description을 포함해야 합니다.
+- description은 한국어로 짧게 작성합니다.
+- 출력은 반드시 JSON만 반환합니다.
+
+중요 입력 규칙:
+- 문제 설명은 실제 시험 문제처럼 작성합니다.
+- description 안에 가능하면 아래 내용을 자연스럽게 포함합니다:
+  - 입력 형식
+  - 출력 형식
+  - 제한사항
+- 테스트케이스 input은 반드시 표준 입력 형태로 작성합니다.
+- [1,2,3] 같은 배열 문자열 표기는 사용하지 않습니다.
+- 공백/줄바꿈 기반 입력을 사용합니다.
+- 예:
+  5
+  10 9 2 5 3
+
+관리자 요청:
+{data.prompt}
+
+규칙:
+1. title은 짧고 명확하게 작성합니다.
+2. description은 학생이 바로 이해할 수 있게 작성합니다.
+3. difficulty는 easy, medium, hard 중 하나만 사용합니다.
+4. testCases에는 기본 케이스와 경계값/예외 케이스를 함께 포함합니다.
+5. 각 testCase의 description은 expectedOutput과 모순되면 안 됩니다.
+6. description에 숫자를 쓸 때는 expectedOutput의 값과 반드시 일치해야 합니다.
+7. 정답 코드는 절대 작성하지 않습니다.
+8. 출력은 반드시 JSON만 반환합니다.
 """
     return prompt.strip()

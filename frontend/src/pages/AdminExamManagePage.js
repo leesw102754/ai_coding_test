@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getProblems, deleteExam, updateExam } from '../api/problemApi';
 import './AdminExamManagePage.css';
-
+import { toast } from 'react-toastify';
 export default function AdminExamManagePage() {
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,10 +73,10 @@ export default function AdminExamManagePage() {
         setIsEditing(false);
       }
 
-      alert('문제가 삭제되었습니다.');
+      toast.success('문제가 삭제되었습니다.');
     } catch (err) {
       console.error('문제 삭제 실패:', err);
-      alert('문제 삭제에 실패했습니다.');
+      toast.error('문제 삭제에 실패했습니다.');
     }
   };
 
@@ -109,7 +109,7 @@ export default function AdminExamManagePage() {
     if (!selectedProblem) return;
 
     if (!editForm.title.trim() || !editForm.description.trim()) {
-      alert('제목과 설명은 필수입니다.');
+      toast.error('제목과 설명은 필수입니다.');
       return;
     }
 
@@ -136,10 +136,10 @@ export default function AdminExamManagePage() {
       setSelectedProblem(updatedProblem);
       setIsEditing(false);
 
-      alert('문제가 수정되었습니다.');
+      toast.success('문제가 수정되었습니다.');
     } catch (err) {
       console.error('문제 수정 실패:', err);
-      alert('문제 수정에 실패했습니다.');
+      toast.error('문제 수정에 실패했습니다.');
     }
   };
 

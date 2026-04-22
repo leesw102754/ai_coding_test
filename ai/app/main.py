@@ -4,8 +4,19 @@ import logging
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Header
 
-from app.schemas import AnalyzeCodeRequest, AnalyzeCodeResponse
-from app.analyzer import analyze_code
+from app.schemas import (
+    AnalyzeCodeRequest,
+    AnalyzeCodeResponse,
+    GenerateTestCasesRequest,
+    GenerateTestCasesResponse,
+    GenerateProblemDraftRequest,
+    GenerateProblemDraftResponse,
+)
+from app.analyzer import (
+    analyze_code,
+    generate_testcases,
+    generate_problem_draft,
+)
 
 load_dotenv()
 
@@ -48,4 +59,60 @@ def analyze_code_endpoint(
         raise HTTPException(
             status_code=500,
             detail="코드 분석 처리 중 서버 오류가 발생했습니다."
+        )
+
+
+@app.post("/generate-testcases", response_model=GenerateTestCasesResponse)
+def generate_testcases_endpoint(
+    request: GenerateTestCasesRequest,
+    x_api_key: str = Header(default="")
+):
+    expected_key = os.getenv("AI_INTERNAL_KEY")
+
+    if not expected_key:
+        logger.error("AI_INTERNAL_KEY is not set")
+        raise HTTPException(status_code=500, detail="서버 설정이 완료되지 않았습니다.")
+
+    if x_api_key != expected_key:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    try:
+        logger.info(
+            "testcase generation request received | title=%s | difficulty=%s",
+            request.title,
+            request.difficulty,
+        )
+        return generate_testcases(request)
+
+    except Exception:
+        logger.exception("generate-testcases failed")
+        raise HTTPException(
+            status_code=500,
+            detail="테스트케이스 생성 중 서버 오류가 발생했습니다."
+        )
+
+
+@app.post("/generate-problem-draft", response_model=GenerateProblemDraftResponse)
+def generate_problem_draft_endpoint(
+    request: GenerateProblemDraftRequest,
+    x_api_key: str = Header(default="")
+):
+    expected_key = os.getenv("AI_INTERNAL_KEY")
+
+    if not expected_key:
+        logger.error("AI_INTERNAL_KEY is not set")
+        raise HTTPException(status_code=500, detail="서버 설정이 완료되지 않았습니다.")
+
+    if x_api_key != expected_key:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    try:
+        logger.info("problem draft request received | prompt=%s", request.prompt)
+        return generate_problem_draft(request)
+
+    except Exception:
+        logger.exception("generate-problem-draft failed")
+        raise HTTPException(
+            status_code=500,
+            detail="문제 초안 생성 중 서버 오류가 발생했습니다."
         )

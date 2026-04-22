@@ -6,6 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import './ProblemPage.css';
 import { submitExam } from '../api/problemApi';
 import LoadingOverlay from '../components/LoadingOverlay';
+import { toast } from 'react-toastify';
 
 const LANGUAGES = [
   { id: 'javascript', label: 'JavaScript' },
@@ -44,7 +45,7 @@ export default function ProblemPage() {
     const solved = sessionStorage.getItem(`solved-${id}`);
 
     if (solved === 'true') {
-      alert('이미 제출한 문제입니다.');
+      toast.error('이미 제출한 문제입니다.');
       navigate('/');
     }
   }, [id, navigate]);
@@ -170,19 +171,28 @@ export default function ProblemPage() {
     };
   }, [examStarted]);
 
-  const startExam = () => {
-    if (problem) {
-      LANGUAGES.forEach((lang) => {
-        localStorage.removeItem(`codetest-code-${problem.id}-${lang.id}`);
-      });
-
-      setCode(problem.starterCode?.[language] || '');
+const startExam = async () => {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText('');
     }
+  } catch (err) {
+    console.warn('클립보드 초기화 실패:', err);
+  }
 
-    setExamStarted(true);
-    setTimer(0);
-    enterFullscreen();
-  };
+  if (problem) {
+    LANGUAGES.forEach((lang) => {
+      localStorage.removeItem(`codetest-code-${problem.id}-${lang.id}`);
+    });
+
+    setCode(problem.starterCode?.[language] || '');
+  }
+
+  setExamStarted(true);
+  setTimer(0);
+  enterFullscreen();
+  toast.info('시험을 시작했습니다. 클립보드가 초기화되었습니다.');
+};
 
   const handleWarningClose = () => {
     warningRef.current = false;
@@ -240,7 +250,7 @@ export default function ProblemPage() {
   // 실제 제출
   const handleSubmit = async () => {
     if (!code.trim()) {
-      alert('코드를 입력하세요.');
+      toast.error('코드를 입력하세요.');
       return;
     }
 

@@ -2,8 +2,14 @@ import { useState,useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import './LoginPage.css';
 import { useNavigate } from 'react-router-dom';
-import { login as loginApi, signup as signupApi } from '../api/authApi';
+import {
+  login as loginApi,
+  signup as signupApi,
+  checkUsername,
+  checkStudentId,
+} from '../api/authApi';
 import LoadingOverlay from '../components/LoadingOverlay';
+import { toast } from 'react-toastify';
 
 export default function LoginPage() {
 const [loginLoading, setLoginLoading] = useState(false);
@@ -21,12 +27,15 @@ const { login, user } = useAuth();
     name: '',
     studentId: '',
   });
+  const [usernameChecked, setUsernameChecked] = useState(false);
+const [usernameCheckMessage, setUsernameCheckMessage] = useState('');
+const [usernameCheckLoading, setUsernameCheckLoading] = useState(false);
 
 const handleLogin = async (e) => {
   e.preventDefault();
 
   if (!id || !pw) {
-    alert('입력하세요');
+    toast.error('입력하세요');
     return;
   }
 
@@ -40,45 +49,104 @@ const handleLogin = async (e) => {
 
     login(userData);
   } catch (err) {
-    alert(err.response?.data?.message || '로그인 실패');
+    toast.error(err.response?.data?.message || '로그인 실패');
   } finally {
     setLoginLoading(false);
   }
 };
 
 
-  const handleSignupChange = (e) => {
-    const { name, value } = e.target;
-    setSignupForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+const handleSignupChange = (e) => {
+  const { name, value } = e.target;
+
+  setSignupForm((prev) => ({
+    ...prev,
+    [name]: value,
+  }));
+
+  if (name === 'username') {
+    setUsernameChecked(false);
+    setUsernameCheckMessage('');
+  }
+};
+
+const handleCheckUsername = async () => {
+  const username = signupForm.username.trim();
+
+  if (!username) {
+    toast.error('아이디를 입력하세요');
+    return;
+  }
+
+  try {
+    setUsernameCheckLoading(true);
+
+    const result = await checkUsername(username);
+
+    setUsernameChecked(result.available);
+    setUsernameCheckMessage(result.message);
+
+    toast.success(result.message);
+  } catch (err) {
+    setUsernameChecked(false);
+    setUsernameCheckMessage('');
+    toast.error(err.response?.data?.message || '아이디 중복확인 실패');
+  } finally {
+    setUsernameCheckLoading(false);
+  }
+};
 
 const handleSignup = async (e) => {
   e.preventDefault();
 
-  const { username, password, name, studentId } = signupForm;
+  const {
+    username,
+    password,
+    name,
+    studentId,
+  } = signupForm;
+
   if (!username || !password || !name || !studentId) {
-    alert('모든 항목을 입력하세요');
+    toast.error('모든 항목을 입력하세요');
+    return;
+  }
+
+  if (!usernameChecked) {
+    toast.error('아이디 중복확인을 해주세요');
     return;
   }
 
   try {
     setSignupLoading(true);
 
-    await signupApi({ username, password, name, studentId });
+    const studentIdResult = await checkStudentId(studentId);
 
-    alert('회원가입 성공! 로그인해주세요');
+    if (!studentIdResult.available) {
+      toast.error(studentIdResult.message || '이미 사용 중인 학번입니다.');
+      return;
+    }
+
+    await signupApi({
+      username,
+      password,
+      name,
+      studentId,
+    });
+
+    toast.success('회원가입 성공! 로그인해주세요');
+
     setSignupForm({
       username: '',
       password: '',
       name: '',
       studentId: '',
     });
+
+    setUsernameChecked(false);
+    setUsernameCheckMessage('');
     setIsSignupOpen(false);
   } catch (err) {
-    alert(err.response?.data?.message || '회원가입 실패');
+    toast.error(err.response?.data?.message || '회원가입 실패');
   } finally {
     setSignupLoading(false);
   }
@@ -165,9 +233,18 @@ return (
               onChange={handleSignupChange}
               className="login-input"
             />
-            <button type="button" className="check-btn">
-              중복확인
-            </button>
+<button
+  type="button"
+  className="check-btn"
+  onClick={handleCheckUsername}
+  disabled={usernameCheckLoading || usernameChecked}
+>
+  {usernameChecked
+    ? '확인완료'
+    : usernameCheckLoading
+    ? '확인중...'
+    : '중복확인'}
+</button>
           </div>
 
           <div className="signup-row">

@@ -7,71 +7,92 @@ export function ProblemProvider({ children }) {
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ 추가된 부분 (핵심)
-  const getStarterCode = (title) => ({
-    javascript: `function solution(input) {
-  // ${title}
-  // 코드를 작성하세요
+ const getStarterCode = (title) => ({
+  javascript: `const input = require('fs').readFileSync(0, 'utf-8');
 
-  return input;
-}
+// ${title}
+
+let result = input.trim();
+
+// ----------
+
+// ----------
+
+console.log(result);
 `,
 
-    python: `def solution(input):
-    # ${title}
-    # 코드를 작성하세요
+  python: `import sys
 
-    return input
+# ${title}
+
+input_data = sys.stdin.read()
+result = input_data.strip()
+
+# ----------
+
+# ----------
+
+print(result)
 `,
 
-    java: `public class Main {
-    public static String solution(String input) {
+  java: `import java.io.BufferedReader;
+import java.io.InputStreamReader;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+
         // ${title}
-        // 코드를 작성하세요
 
-        return input;
-    }
+        String input = br.readLine();
+        String result = input.trim();
 
-    public static void main(String[] args) {
-        String input = "";
-        System.out.println(solution(input));
+        // ----------
+
+        // ----------
+
+        System.out.println(result);
     }
 }
 `,
 
-    c: `#include <stdio.h>
-
-int solution(int input) {
-    // ${title}
-    // 코드를 작성하세요
-
-    return input;
-}
+  c: `#include <stdio.h>
 
 int main() {
+    // ${title}
+
     int input = 0;
-    printf("%d\\n", solution(input));
+    scanf("%d", &input);
+    int result = input;
+
+    // ----------
+
+    // ----------
+
+    printf("%d\\n", result);
     return 0;
 }
 `,
 
-    cpp: `#include <iostream>
+  cpp: `#include <iostream>
 using namespace std;
 
-int solution(int input) {
-    // ${title}
-    // 코드를 작성하세요
-
-    return input;
-}
-
 int main() {
+    // ${title}
+
     int input = 0;
-    cout << solution(input) << endl;
+    cin >> input;
+    int result = input;
+
+    // ----------
+
+    // ----------
+
+    cout << result << endl;
     return 0;
 }
 `,
-  });
+});
 
   const transformProblem = (p, index = 0) => ({
     id: p.id,
