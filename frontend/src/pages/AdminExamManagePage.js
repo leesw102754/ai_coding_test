@@ -8,12 +8,13 @@ export default function AdminExamManagePage() {
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  const [editForm, setEditForm] = useState({
-    title: '',
-    description: '',
-    constraints: '',
-    difficulty: 'easy',
-  });
+const [editForm, setEditForm] = useState({
+  title: '',
+  description: '',
+  constraints: '',
+  difficulty: 'easy',
+  point: 20,
+});
 
   const [search, setSearch] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('all');
@@ -50,12 +51,13 @@ export default function AdminExamManagePage() {
 
   const handleSelectProblem = (problem) => {
   setSelectedProblem(problem);
-  setEditForm({
-    title: problem.title || '',
-    description: problem.description || '',
-    constraints: problem.constraints || '',
-    difficulty: problem.difficulty || 'easy',
-  });
+setEditForm({
+  title: problem.title || '',
+  description: problem.description || '',
+  constraints: problem.constraints || '',
+  difficulty: problem.difficulty || 'easy',
+  point: problem.point ?? 20,
+});
   setIsEditing(false);
 };
 
@@ -88,12 +90,13 @@ export default function AdminExamManagePage() {
   const handleCancelEdit = () => {
   if (!selectedProblem) return;
 
-  setEditForm({
-    title: selectedProblem.title || '',
-    description: selectedProblem.description || '',
-    constraints: selectedProblem.constraints || '',
-    difficulty: selectedProblem.difficulty || 'easy',
-  });
+setEditForm({
+  title: selectedProblem.title || '',
+  description: selectedProblem.description || '',
+  constraints: selectedProblem.constraints || '',
+  difficulty: selectedProblem.difficulty || 'easy',
+  point: selectedProblem.point ?? 20,
+});
   setIsEditing(false);
 };
 
@@ -113,21 +116,30 @@ export default function AdminExamManagePage() {
       return;
     }
 
-    try {
-      await updateExam(selectedProblem.id, {
- 	 title: editForm.title,
-  	description: editForm.description,
- 	 constraints: editForm.constraints,
-  	difficulty: editForm.difficulty,
-	});
+const parsedPoint = Number(editForm.point);
 
-	const updatedProblem = {
- 	 ...selectedProblem,
- 	 title: editForm.title,
- 	 description: editForm.description,
-	  constraints: editForm.constraints,
- 	 difficulty: editForm.difficulty,
-	};
+if (!Number.isInteger(parsedPoint) || parsedPoint <= 0) {
+  toast.error('배점은 1점 이상의 숫자로 입력하세요.');
+  return;
+}
+
+    try {
+await updateExam(selectedProblem.id, {
+  title: editForm.title.trim(),
+  description: editForm.description.trim(),
+  constraints: editForm.constraints,
+  difficulty: editForm.difficulty,
+  point: parsedPoint,
+});
+
+const updatedProblem = {
+  ...selectedProblem,
+  title: editForm.title.trim(),
+  description: editForm.description.trim(),
+  constraints: editForm.constraints,
+  difficulty: editForm.difficulty,
+  point: parsedPoint,
+};
 
       setProblems((prev) =>
         prev.map((p) => (p.id === selectedProblem.id ? updatedProblem : p))
@@ -216,7 +228,9 @@ export default function AdminExamManagePage() {
                 >
                   <div className="admin-exam-card-top">
                     <span className="admin-exam-id">문제 #{problem.id}</span>
-
+		<span className="admin-exam-point">
+ 			 배점 {problem.point ?? 0}점
+		</span>
                     <span
                       className={`admin-exam-difficulty ${
                         problem.difficulty || 'easy'
@@ -301,6 +315,18 @@ export default function AdminExamManagePage() {
                     disabled={!isEditing}
                   />
                 </label>
+
+		<label className="admin-exam-form-group">
+  		<span>배점</span>
+  		<input
+    		type="number"
+    		name="point"
+   		 min="1"
+  		  value={editForm.point}
+  		  onChange={handleChange}
+ 		   disabled={!isEditing}
+ 		 />
+		</label>
 
                 <label className="admin-exam-form-group">
                   <span>문제 설명</span>

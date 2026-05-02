@@ -4,7 +4,12 @@ import Editor from '@monaco-editor/react';
 import { useProblem } from '../context/ProblemContext';
 import { useTheme } from '../context/ThemeContext';
 import './ProblemPage.css';
-import { submitExam } from '../api/problemApi';
+import { useAuth } from '../context/AuthContext';
+import {
+  submitExam,
+  getTestCasesByExamId,
+  getSubmissionsByStudentId,
+} from '../api/problemApi';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { toast } from 'react-toastify';
 
@@ -21,6 +26,7 @@ export default function ProblemPage() {
   const navigate = useNavigate();
   const { problems } = useProblem();
   const { theme } = useTheme();
+  const { user } = useAuth();
 
   const problem = problems.find((p) => p.id === parseInt(id, 10));
 
@@ -37,18 +43,58 @@ export default function ProblemPage() {
   const [testResults, setTestResults] = useState([]);
   const [submitResult, setSubmitResult] = useState(null);
   const [timer, setTimer] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+
+  const [testCases, setTestCases] = useState([]);
+  const [testCaseLoading, setTestCaseLoading] = useState(false);
+
   const timerRef = useRef(null);
   const warningRef = useRef(false);
+  const submitLockRef = useRef(false);
+
+useEffect(() => {
+  const checkAlreadySubmitted = async () => {
+    if (!id || !user?.studentId) return;
+
+    try {
+      const data = await getSubmissionsByStudentId(user.studentId);
+
+      const alreadySubmitted = (data || []).some(
+        (item) => String(item.examId) === String(id)
+      );
+
+if (alreadySubmitted) {
+  setHasSubmitted(true);
+  submitLockRef.current = true;
+  toast.error('이미 제출한 문제입니다.');
+  navigate('/');
+}
+    } catch (err) {
+      console.error('제출 여부 확인 실패:', err);
+    }
+  };
+
+  checkAlreadySubmitted();
+}, [id, user?.studentId, navigate]);
 
   useEffect(() => {
-    const solved = sessionStorage.getItem(`solved-${id}`);
+    const fetchTestCases = async () => {
+      if (!id) return;
 
-    if (solved === 'true') {
-      toast.error('이미 제출한 문제입니다.');
-      navigate('/');
-    }
-  }, [id, navigate]);
+      try {
+        setTestCaseLoading(true);
+        const data = await getTestCasesByExamId(id);
+        setTestCases(data || []);
+      } catch (err) {
+        console.error('테스트케이스 조회 실패:', err);
+        setTestCases([]);
+      } finally {
+        setTestCaseLoading(false);
+      }
+    };
+
+    fetchTestCases();
+  }, [id]);
 
   useEffect(() => {
     if (problem) {
@@ -171,28 +217,28 @@ export default function ProblemPage() {
     };
   }, [examStarted]);
 
-const startExam = async () => {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText('');
+  const startExam = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText('');
+      }
+    } catch (err) {
+      console.warn('클립보드 초기화 실패:', err);
     }
-  } catch (err) {
-    console.warn('클립보드 초기화 실패:', err);
-  }
 
-  if (problem) {
-    LANGUAGES.forEach((lang) => {
-      localStorage.removeItem(`codetest-code-${problem.id}-${lang.id}`);
-    });
+    if (problem) {
+      LANGUAGES.forEach((lang) => {
+        localStorage.removeItem(`codetest-code-${problem.id}-${lang.id}`);
+      });
 
-    setCode(problem.starterCode?.[language] || '');
-  }
+      setCode(problem.starterCode?.[language] || '');
+    }
 
-  setExamStarted(true);
-  setTimer(0);
-  enterFullscreen();
-  toast.info('시험을 시작했습니다. 클립보드가 초기화되었습니다.');
-};
+    setExamStarted(true);
+    setTimer(0);
+    enterFullscreen();
+    toast.info('시험을 시작했습니다. 클립보드가 초기화되었습니다.');
+  };
 
   const handleWarningClose = () => {
     warningRef.current = false;
@@ -218,7 +264,6 @@ const startExam = async () => {
     setExitConfirm(false);
   };
 
-  // 로컬 실행 미리보기
   const runCode = () => {
     setIsRunning(true);
     setOutput('');
@@ -231,10 +276,10 @@ const startExam = async () => {
         );
 
         setTestResults(
-          problem.testCases.map((tc, i) => ({
+          testCases.map((tc, i) => ({
             id: i + 1,
             input: tc.input,
-            expected: tc.expected,
+            expected: tc.expectedOutput || tc.expected,
             actual: '미리보기 완료 (실제 채점은 서버에서 처리)',
             passed: 'preview',
           }))
@@ -247,36 +292,56 @@ const startExam = async () => {
     }, 500);
   };
 
-  // 실제 제출
-  const handleSubmit = async () => {
-    if (!code.trim()) {
-      toast.error('코드를 입력하세요.');
-      return;
-    }
+const handleSubmit = async () => {
+  if (hasSubmitted || submitLockRef.current) {
+    toast.error('이미 제출한 문제입니다.');
+    return;
+  }
 
-    setIsRunning(true);
-    setIsSubmitting(true);
-    setSubmitResult(null);
+  if (!code.trim()) {
+    toast.error('코드를 입력하세요.');
+    return;
+  }
+
+  submitLockRef.current = true;
+  setIsRunning(true);
+  setIsSubmitting(true);
+  setSubmitResult(null);
 
     try {
-      const savedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+	const savedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+
+	const studentId = user?.studentId || savedUser.studentId;
+	const studentName =
+  	user?.name ||
+  	user?.studentName ||
+  	savedUser.name ||
+  	savedUser.studentName;
 
 	const res = await submitExam({
- 	 examId: problem.id,
- 	 studentId: savedUser.studentId,
- 	 studentName: savedUser.name,
-	  language,
- 	 code,
+  	examId: problem.id,
+  	studentId,
+  	studentName,
+  	language,
+  	code,
 	});
 
-      setSubmitResult({
-        success: true,
-        message: res.message || '제출 완료',
-        submission: res.submission,
-        aiFeedback: res.ai_feedback,
-      });
+if (res.duplicated) {
+  setHasSubmitted(true);
+  setOutput(res.message || '이미 제출한 문제입니다.');
+  toast.error(res.message || '이미 제출한 문제입니다.');
+  return;
+}
 
-      const ai = res.ai_feedback;
+  const ai = res.ai_feedback || res.aiFeedback || res.submission?.aiFeedback || null;
+
+  setSubmitResult({
+    success: true,
+    message: res.message || '제출 완료',
+    submission: res.submission,
+    aiFeedback: ai,
+  });
+
       sessionStorage.setItem(
         `result-${problem.id}`,
         JSON.stringify({
@@ -290,18 +355,21 @@ const startExam = async () => {
       );
 
       sessionStorage.setItem(`solved-${problem.id}`, 'true');
+      setHasSubmitted(true);
       setOutput('제출이 완료되었습니다. 아래 AI 피드백을 확인하세요.');
-    } catch (err) {
-      console.error(err);
+} catch (err) {
+  console.error(err);
 
-      setSubmitResult({
-        success: false,
-        message: err.response?.data?.message || '제출 실패',
-      });
-    } finally {
-      setIsRunning(false);
-      setIsSubmitting(false);
-    }
+  submitLockRef.current = false;
+
+  setSubmitResult({
+    success: false,
+    message: err.response?.data?.message || '제출 실패',
+  });
+} finally {
+  setIsRunning(false);
+  setIsSubmitting(false);
+}
   };
 
   if (!problem) {
@@ -313,16 +381,14 @@ const startExam = async () => {
     );
   }
 
-const diffMap = {
-  easy: { label: '쉬움', cls: 'tag-easy' },
-  medium: { label: '보통', cls: 'tag-medium' },
-  hard: { label: '어려움', cls: 'tag-hard' },
-
-  // 🔥 추가 (한글 대응)
-  쉬움: { label: '쉬움', cls: 'tag-easy' },
-  보통: { label: '보통', cls: 'tag-medium' },
-  어려움: { label: '어려움', cls: 'tag-hard' },
-};
+  const diffMap = {
+    easy: { label: '쉬움', cls: 'tag-easy' },
+    medium: { label: '보통', cls: 'tag-medium' },
+    hard: { label: '어려움', cls: 'tag-hard' },
+    쉬움: { label: '쉬움', cls: 'tag-easy' },
+    보통: { label: '보통', cls: 'tag-medium' },
+    어려움: { label: '어려움', cls: 'tag-hard' },
+  };
 
   return (
     <div className={`problem-page ${examStarted ? 'exam-mode' : ''}`}>
@@ -384,8 +450,8 @@ const diffMap = {
           <div className="exam-problem-info">
             <span className="exam-number">{problem.number}</span>
             <span className="exam-title">{problem.title}</span>
-<span className={`difficulty-badge ${diffMap[problem.difficulty]?.cls || 'tag-easy'}`}>
-  {diffMap[problem.difficulty]?.label || '쉬움'}
+            <span className={`difficulty-badge ${diffMap[problem.difficulty]?.cls || 'tag-easy'}`}>
+              {diffMap[problem.difficulty]?.label || '쉬움'}
             </span>
           </div>
         </div>
@@ -394,7 +460,9 @@ const diffMap = {
           {examStarted && (
             <>
               <div className="exam-timer">{formatTime(timer)}</div>
-              {warningCount > 0 && <div className="warning-badge">⚠️ 경고 {warningCount}회</div>}
+              {warningCount > 0 && (
+                <div className="warning-badge">⚠️ 경고 {warningCount}회</div>
+              )}
             </>
           )}
 
@@ -428,6 +496,7 @@ const diffMap = {
             >
               문제 설명
             </button>
+
             <button
               className={`panel-tab ${activeTab === 'testcases' ? 'active' : ''}`}
               onClick={() => setActiveTab('testcases')}
@@ -441,8 +510,9 @@ const diffMap = {
               <div className="description-content">
                 <div className="problem-meta">
                   <span className="meta-item">시간 제한: {problem.timeLimit}ms</span>
+
                   <div className="meta-tags">
-                    {problem.tags.map((tag) => (
+                    {(problem.tags || []).map((tag) => (
                       <span key={tag} className="tag">
                         {tag}
                       </span>
@@ -451,8 +521,9 @@ const diffMap = {
                 </div>
 
                 <div className="description-text">
-                  {problem.description.split('\n').map((line, i) => {
+                  {(problem.description || '').split('\n').map((line, i) => {
                     if (line.startsWith('```')) return null;
+
                     if (line.startsWith('**')) {
                       return (
                         <h4 key={i} className="desc-heading">
@@ -460,6 +531,7 @@ const diffMap = {
                         </h4>
                       );
                     }
+
                     if (line.startsWith('- ')) {
                       return (
                         <li key={i} className="desc-li">
@@ -467,7 +539,9 @@ const diffMap = {
                         </li>
                       );
                     }
+
                     if (line.trim() === '') return <br key={i} />;
+
                     return (
                       <p key={i} className="desc-p">
                         {line}
@@ -480,53 +554,75 @@ const diffMap = {
 
             {activeTab === 'testcases' && (
               <div className="testcases-content">
-                {problem.testCases.map((tc, i) => (
-                  <div key={i} className="testcase-card">
-                    <div className="testcase-header">
-                      <span className="testcase-num">테스트 {i + 1}</span>
-                      {testResults[i] && (
-                        <span
-                          className={`testcase-result ${
-                            testResults[i].passed === true
-                              ? 'passed'
-                              : testResults[i].passed === false
-                              ? 'failed'
-                              : testResults[i].passed === 'preview'
-                              ? 'passed'
-                              : 'pending'
-                          }`}
-                        >
-                          {testResults[i].passed === true
-                            ? '✓ 통과'
-                            : testResults[i].passed === false
-                            ? '✗ 실패'
-                            : testResults[i].passed === 'preview'
-                            ? '✓ 완료'
-                            : '대기'}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="testcase-row">
-                      <span className="tc-label">입력</span>
-                      <code className="tc-value">{tc.input}</code>
-                    </div>
-
-                    <div className="testcase-row">
-                      <span className="tc-label">기대값</span>
-                      <code className="tc-value">{tc.expected}</code>
-                    </div>
-
-                    {testResults[i] && (
-                      <div className="testcase-row">
-                        <span className="tc-label">실제값</span>
-                        <code className={`tc-value ${testResults[i].passed === false ? 'tc-error' : ''}`}>
-                          {testResults[i].actual}
-                        </code>
-                      </div>
-                    )}
+                {testCaseLoading ? (
+                  <div className="empty-state">
+                    테스트케이스를 불러오는 중입니다...
                   </div>
-                ))}
+                ) : testCases.length === 0 ? (
+                  <div className="empty-state">
+                    등록된 테스트케이스가 없습니다.
+                  </div>
+                ) : (
+                  testCases.map((tc, i) => {
+                    const expectedValue = tc.expectedOutput || tc.expected || tc.output || '';
+
+                    return (
+                      <div key={tc.id || i} className="testcase-card">
+                        <div className="testcase-header">
+                          <span className="testcase-num">테스트 {i + 1}</span>
+
+                          {testResults[i] && (
+                            <span
+                              className={`testcase-result ${
+                                testResults[i].passed === true
+                                  ? 'passed'
+                                  : testResults[i].passed === false
+                                  ? 'failed'
+                                  : testResults[i].passed === 'preview'
+                                  ? 'passed'
+                                  : 'pending'
+                              }`}
+                            >
+                              {testResults[i].passed === true
+                                ? '✓ 통과'
+                                : testResults[i].passed === false
+                                ? '✗ 실패'
+                                : testResults[i].passed === 'preview'
+                                ? '✓ 완료'
+                                : '대기'}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="testcase-row">
+                          <span className="tc-label">입력</span>
+                          <code className="tc-value">{tc.input}</code>
+                        </div>
+
+                        <div className="testcase-row">
+                          <span className="tc-label">기대값</span>
+                          <code className="tc-value">{expectedValue}</code>
+                        </div>
+
+                        {tc.description && (
+                          <div className="testcase-row">
+                            <span className="tc-label">설명</span>
+                            <code className="tc-value">{tc.description}</code>
+                          </div>
+                        )}
+
+                        {testResults[i] && (
+                          <div className="testcase-row">
+                            <span className="tc-label">실제값</span>
+                            <code className={`tc-value ${testResults[i].passed === false ? 'tc-error' : ''}`}>
+                              {testResults[i].actual}
+                            </code>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             )}
           </div>
@@ -589,6 +685,7 @@ const diffMap = {
           <div className="output-panel">
             <div className="output-header">
               <span className="output-title">결과</span>
+
               {submitResult && (
                 <span className={`submit-result ${submitResult.success ? 'success' : 'fail'}`}>
                   {submitResult.success ? '✓ 제출 완료' : '✗ 제출 실패'}
@@ -600,7 +697,9 @@ const diffMap = {
               {output ? (
                 <pre className="output-text">{output}</pre>
               ) : (
-                <span className="output-placeholder">실행 또는 제출 결과가 여기에 표시됩니다.</span>
+                <span className="output-placeholder">
+                  실행 또는 제출 결과가 여기에 표시됩니다.
+                </span>
               )}
 
               {submitResult && (
@@ -634,17 +733,21 @@ const diffMap = {
           </div>
 
           <div className="action-bar">
-            <button className="btn-run" onClick={runCode} disabled={isRunning || !examStarted}>
+            <button
+              className="btn-run"
+              onClick={runCode}
+              disabled={isRunning || !examStarted}
+            >
               {isRunning ? '실행 중...' : '실행'}
             </button>
 
-            <button
-              className="btn-submit"
-              onClick={handleSubmit}
-              disabled={isRunning || !examStarted || !code.trim()}
-            >
-              제출
-            </button>
+<button
+  className="btn-submit"
+  onClick={handleSubmit}
+  disabled={isRunning || isSubmitting || !examStarted || !code.trim() || hasSubmitted}
+>
+  {hasSubmitted ? '제출 완료' : '제출'}
+</button>
           </div>
         </div>
       </div>

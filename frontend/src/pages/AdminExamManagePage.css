@@ -346,3 +346,18 @@
   color: var(--text-secondary);
   cursor: default;
 }
+
+.admin-exam-point {
+  font-size: 0.78rem;
+  color: #3b82f6;
+  font-weight: 700;
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 999px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.admin-exam-card-top {
+  gap: 8px;
+}

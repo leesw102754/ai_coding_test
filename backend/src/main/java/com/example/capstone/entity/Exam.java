@@ -20,4 +20,6 @@ public class Exam {
     private String difficulty;
 
     private String source; // manual or ai
+
+    private Integer point;
 }

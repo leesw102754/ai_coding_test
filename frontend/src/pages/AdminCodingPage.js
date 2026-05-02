@@ -23,7 +23,7 @@ export default function AdminCodingPage() {
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [message, setMessage] = useState('');
-
+  const [point, setPoint] = useState(20);
   const dedupeTestCases = (cases) => {
     const seen = new Set();
 
@@ -177,16 +177,26 @@ const handleAddTestCase = () => {
       return;
     }
 
-    try {
-      setLoading(true);
-      setMessage('');
+const parsedPoint = Number(point);
 
-      const createdExam = await createExam({
-        title,
-        description,
-        difficulty,
-        source: problemSource,
-      });
+if (!Number.isInteger(parsedPoint) || parsedPoint <= 0) {
+  setMessage('점수는 1점 이상의 숫자로 입력하세요.');
+  return;
+}
+
+try {
+  setLoading(true);
+  setMessage('');
+
+  const createdExam = await createExam({
+    title: title.trim(),
+    description: description.trim(),
+    difficulty,
+    point: parsedPoint,
+    source: problemSource,
+  });
+
+console.log('등록된 문제:', createdExam);
 
       const examId = createdExam.id;
 
@@ -207,12 +217,13 @@ const handleAddTestCase = () => {
       setMessage('문제와 테스트케이스가 모두 등록되었습니다.');
       setProblemPrompt('');
       setProblemSource('manual');
-      setTitle('');
-      setDescription('');
-      setDifficulty('easy');
-      setTestInput('');
-      setExpectedOutput('');
-      setTestCases([]);
+	setTitle('');
+	setDescription('');
+	setDifficulty('easy');
+	setPoint(20);
+	setTestInput('');
+	setExpectedOutput('');
+	setTestCases([]);
     } catch (err) {
       console.error(err);
       setMessage('문제 등록에 실패했습니다.');
@@ -295,6 +306,21 @@ const handleAddTestCase = () => {
               <option value="hard">어려움</option>
             </select>
           </div>
+
+<div className="admincodingpage-form-group">
+  <label className="admincodingpage-label">점수</label>
+<input
+  type="number"
+  min="1"
+  className="admincodingpage-input"
+  placeholder="예: 20"
+  value={point}
+  onChange={(e) => {
+    setPoint(e.target.value);
+    if (problemSource === 'ai') setProblemSource('ai_edited');
+  }}
+/>
+</div>
 
           <div className="admincodingpage-form-group">
             <label className="admincodingpage-label">문제 생성 방식</label>

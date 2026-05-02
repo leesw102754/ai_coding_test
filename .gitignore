@@ -42,4 +42,7 @@ out/
 /.nb-gradle/
 
 # --- OS ---
-.DS_Store
+.DS_Store.env
+ai/.env
+ai/.env
+.env

@@ -1,4 +1,6 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { getSubmissionsByStudentId } from '../api/problemApi';
 import { useProblem } from '../context/ProblemContext';
 import './ResultsPage.css';
 import {
@@ -15,58 +17,110 @@ import {
 } from 'recharts';
 
 export default function ResultsPage() {
+
+const { user } = useAuth();
+const [mySubmissions, setMySubmissions] = useState([]);
+const [loadingResults, setLoadingResults] = useState(true);
+
+useEffect(() => {
+  const fetchMySubmissions = async () => {
+    if (!user?.studentId) {
+      setMySubmissions([]);
+      setLoadingResults(false);
+      return;
+    }
+
+    try {
+      setLoadingResults(true);
+      const data = await getSubmissionsByStudentId(user.studentId);
+      setMySubmissions(data || []);
+    } catch (err) {
+      console.error('내 제출 결과 조회 실패:', err);
+      setMySubmissions([]);
+    } finally {
+      setLoadingResults(false);
+    }
+  };
+
+  fetchMySubmissions();
+}, [user?.studentId]);
+
   const { problems } = useProblem();
 
-const difficultyLabelMap = {
-  easy: '쉬움',
-  medium: '보통',
-  hard: '어려움',
+ const difficultyLabelMap = {
+   easy: '쉬움',
+   medium: '보통',
+   hard: '어려움',
   쉬움: '쉬움',
   보통: '보통',
   어려움: '어려움',
+  };
+
+const resultList = useMemo(() => {
+  return problems
+    .map((problem) => {
+      const relatedSubmissions = mySubmissions.filter(
+        (item) => String(item.examId) === String(problem.id)
+      );
+
+      const latestSubmission = relatedSubmissions[0] || null;
+      const submitted = !!latestSubmission;
+
+const isCorrect = latestSubmission?.correct ?? latestSubmission?.isCorrect ?? false;
+const point = Number(problem.point ?? 0);
+const earnedPoint =
+  latestSubmission?.earnedPoint ?? (isCorrect ? point : 0);
+
+return {
+  ...problem,
+  submitted,
+  isCorrect,
+  point,
+  earnedPoint,
+  errorType: latestSubmission?.status ?? null,
+  summary: latestSubmission?.aiSummary ?? '',
+  wrongReason: latestSubmission?.aiWrongReason ?? '',
+  solutionDirection: latestSubmission?.aiSolutionDirection ?? '',
+  improvement: latestSubmission?.aiImprovement ?? '',
+  submitTime: latestSubmission?.submitTime ?? null,
 };
+    })
+    .filter((problem) => problem.submitted);
+}, [problems, mySubmissions]);
 
-  const resultList = useMemo(() => {
-    return problems
-      .map((problem) => {
-        const submitted = sessionStorage.getItem(`solved-${problem.id}`) === 'true';
-        const raw = sessionStorage.getItem(`result-${problem.id}`);
-        const result = raw ? JSON.parse(raw) : null;
+const stats = useMemo(() => {
+  const total = resultList.length;
+  const correct = resultList.filter((p) => p.isCorrect).length;
 
-        return {
-          ...problem,
-          submitted,
-          isCorrect: result?.isCorrect ?? false,
-          errorType: result?.errorType ?? null,
-          summary: result?.summary ?? '',
-          wrongReason: result?.wrongReason ?? '',
-          solutionDirection: result?.solutionDirection ?? '',
-          improvement: result?.improvement ?? '',
-        };
-      })
-      .filter((problem) => problem.submitted);
-  }, [problems]);
+  const totalScore = resultList.reduce(
+    (sum, p) => sum + Number(p.earnedPoint ?? 0),
+    0
+  );
 
-  const stats = useMemo(() => {
-    const total = resultList.length;
-    const correct = resultList.filter((p) => p.isCorrect).length;
+  const maxScore = resultList.reduce(
+    (sum, p) => sum + Number(p.point ?? 0),
+    0
+  );
 
-    const easy = resultList.filter((p) => p.difficulty === 'easy');
-    const medium = resultList.filter((p) => p.difficulty === 'medium');
-    const hard = resultList.filter((p) => p.difficulty === 'hard');
+  const easy = resultList.filter((p) => p.difficulty === 'easy' || p.difficulty === '쉬움');
+  const medium = resultList.filter((p) => p.difficulty === 'medium' || p.difficulty === '보통');
+  const hard = resultList.filter((p) => p.difficulty === 'hard' || p.difficulty === '어려움');
 
-    const rate = (arr) =>
-      arr.length === 0 ? 0 : Math.round((arr.filter((p) => p.isCorrect).length / arr.length) * 100);
+  const rate = (arr) =>
+    arr.length === 0 ? 0 : Math.round((arr.filter((p) => p.isCorrect).length / arr.length) * 100);
 
-    return {
-      total,
-      correct,
-      overallRate: total === 0 ? 0 : Math.round((correct / total) * 100),
-      easyRate: rate(easy),
-      mediumRate: rate(medium),
-      hardRate: rate(hard),
-    };
-  }, [resultList]);
+  return {
+    total,
+    correct,
+    totalScore,
+    maxScore,
+    scoreRate: maxScore === 0 ? 0 : Math.round((totalScore / maxScore) * 100),
+    overallRate: total === 0 ? 0 : Math.round((correct / total) * 100),
+    easyRate: rate(easy),
+    mediumRate: rate(medium),
+    hardRate: rate(hard),
+  };
+}, [resultList]);
 
   const lineChartData = [
   { name: '쉬움', rate: stats.easyRate },
@@ -81,23 +135,43 @@ const pieChartData = [
 
 const PIE_COLORS = ['#22c55e', '#ef4444'];
 
+if (loadingResults) {
+  return (
+    <div className="results-page">
+      <div className="results-inner">
+        <div className="results-empty">제출 결과를 불러오는 중입니다...</div>
+      </div>
+    </div>
+  );
+}
+
 return (
   <div className="results-page">
     <div className="results-inner">
       <h2 className="results-title">결과 확인</h2>
       <p className="results-subtitle">제출한 문제와 AI 피드백을 확인할 수 있습니다.</p>
 
-      <div className="results-summary">
-        <div className="results-stat-card">
-          <div className="results-stat-value">{stats.correct}/{stats.total}</div>
-          <div className="results-stat-label">정답 / 제출</div>
-        </div>
+<div className="results-summary">
+  <div className="results-stat-card">
+    <div className="results-stat-value">{stats.correct}/{stats.total}</div>
+    <div className="results-stat-label">정답 / 제출</div>
+  </div>
 
-        <div className="results-stat-card">
-          <div className="results-stat-value">{stats.overallRate}%</div>
-          <div className="results-stat-label">전체 정답률</div>
-        </div>
-      </div>
+  <div className="results-stat-card">
+    <div className="results-stat-value">{stats.overallRate}%</div>
+    <div className="results-stat-label">전체 정답률</div>
+  </div>
+
+  <div className="results-stat-card">
+    <div className="results-stat-value">{stats.totalScore}/{stats.maxScore}</div>
+    <div className="results-stat-label">총점 / 만점</div>
+  </div>
+
+  <div className="results-stat-card">
+    <div className="results-stat-value">{stats.scoreRate}%</div>
+    <div className="results-stat-label">점수 달성률</div>
+  </div>
+</div>
 
       <div className="results-chart-grid">
         <div className="results-chart-card">
@@ -207,9 +281,11 @@ return (
               <div className="result-card-header">
                 <div>
                   <div className="result-problem-title">{item.title}</div>
-                  <div className="result-meta">
-                    난이도: {difficultyLabelMap[item.difficulty] || '쉬움'} · 오류유형: {item.errorType || '없음'}
-                  </div>
+		<div className="result-meta">
+  		난이도: {difficultyLabelMap[item.difficulty] || '쉬움'} ·
+  		점수: {item.earnedPoint}/{item.point}점 ·
+  		오류유형: {item.errorType || '없음'}
+		</div>
                 </div>
 
                 <div className={`result-badge ${item.isCorrect ? 'correct' : 'wrong'}`}>

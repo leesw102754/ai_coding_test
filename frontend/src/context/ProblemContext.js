@@ -94,28 +94,27 @@ int main() {
 `,
 });
 
-  const transformProblem = (p, index = 0) => ({
-    id: p.id,
-    title: p.title,
-    description: p.description,
+const transformProblem = (p, index = 0) => ({
+  id: p.id,
+  title: p.title,
+  description: p.description,
 
-    number: index + 1,
-    difficulty: p.difficulty || 'easy',
-    solved: false,
-    timeLimit: p.timeLimit || 1000,
+  number: index + 1,
+  difficulty: p.difficulty || 'easy',
+  point: Number(p.point ?? 0),
+  solved: false,
+  timeLimit: p.timeLimit || 1000,
 
-    tags: p.tags || ['이론', '기초'],
+  tags: p.tags || ['이론', '기초'],
+  starterCode: getStarterCode(p.title),
 
-    // ✅ 여기 수정됨
-    starterCode: getStarterCode(p.title),
-
-    testCases: p.testCases || [
-      {
-        input: '설명형 문제',
-        expected: '서술형 답변',
-      },
-    ],
-  });
+  testCases: p.testCases || [
+    {
+      input: '설명형 문제',
+      expected: '서술형 답변',
+    },
+  ],
+});
 
   const fetchProblems = async () => {
     try {

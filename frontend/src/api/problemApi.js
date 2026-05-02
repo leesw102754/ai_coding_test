@@ -58,3 +58,9 @@ export const updateExam = async (id, data) => {
   const res = await API.patch(`/exams/${id}`, data);
   return res.data;
 };
+
+export const getSubmissionsByStudentId = async (studentId) => {
+  const res = await API.get(`/submissions/student/${studentId}`);
+  return res.data;
+};
+

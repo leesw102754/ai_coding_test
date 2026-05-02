@@ -11,10 +11,48 @@ import {
   YAxis,
   CartesianGrid,
   Legend,
-  LabelList,
 } from 'recharts';
-import { getAllSubmissions, getSubmissionDetail } from '../api/problemApi';
+import { getAllSubmissions, getSubmissionDetail, getProblems } from '../api/problemApi';
 import './AdminResultPage.css';
+
+const AI_ERROR_LABELS = {
+  accepted: '정답',
+  logic: '논리 오류',
+  runtime: '런타임 오류',
+  index: '인덱스 오류',
+  compile: '컴파일 오류',
+  ai_error: 'AI 분석 오류',
+  wrong: '오답',
+  unknown: '기타',
+};
+
+const AI_ERROR_GUIDE = {
+  logic: '조건문, 반복문, 출력 형식 검토가 필요합니다.',
+  index: '배열/문자열 인덱스 범위와 빈 입력 예외 처리가 필요합니다.',
+  runtime: '0으로 나누기, 입력 형식, 예외 발생 가능성을 확인해야 합니다.',
+  compile: '문법 오류, 클래스명, import, 세미콜론 누락 여부를 확인해야 합니다.',
+  ai_error: 'AI 서버 실행 상태와 API 연결 상태를 확인해야 합니다.',
+  wrong: '실패 테스트케이스 기준으로 알고리즘 흐름을 다시 점검해야 합니다.',
+  unknown: '제출 상태 데이터가 명확하지 않아 상세 제출 정보를 확인해야 합니다.',
+};
+
+const normalizeSubmissionStatus = (item) => {
+  const rawStatus = String(item?.status || '').trim().toLowerCase();
+
+  if (rawStatus.includes('accept') || item?.correct === true || item?.isCorrect === true) {
+    return 'accepted';
+  }
+
+  if (rawStatus.includes('logic')) return 'logic';
+  if (rawStatus.includes('index')) return 'index';
+  if (rawStatus.includes('runtime')) return 'runtime';
+  if (rawStatus.includes('compile')) return 'compile';
+  if (rawStatus.includes('ai_error')) return 'ai_error';
+  if (rawStatus.includes('wrong') || rawStatus.includes('fail')) return 'wrong';
+  if (item?.correct === false || item?.isCorrect === false) return 'wrong';
+
+  return 'unknown';
+};
 
 export default function AdminResultPage() {
   const [submissions, setSubmissions] = useState([]);
@@ -22,8 +60,11 @@ export default function AdminResultPage() {
   const [selectedId, setSelectedId] = useState(null);
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [search, setSearch] = useState('');
-  const [languageFilter, setLanguageFilter] = useState('all');
+const [search, setSearch] = useState('');
+const [languageFilter, setLanguageFilter] = useState('all');
+const [exams, setExams] = useState([]);
+const [currentPage, setCurrentPage] = useState(1);
+const pageSize = 10;
 
   useEffect(() => {
     const fetchSubmissions = async () => {
@@ -40,6 +81,20 @@ export default function AdminResultPage() {
 
     fetchSubmissions();
   }, []);
+
+useEffect(() => {
+  const fetchExams = async () => {
+    try {
+      const res = await getProblems();
+      setExams(res.data || []);
+    } catch (err) {
+      console.error('문제 목록 조회 실패:', err);
+      setExams([]);
+    }
+  };
+
+  fetchExams();
+}, []);
 
   const handleSelectSubmission = async (id) => {
     try {
@@ -68,6 +123,101 @@ export default function AdminResultPage() {
     });
   }, [submissions, search, languageFilter]);
 
+const totalSubmissionPages = Math.max(
+  1,
+  Math.ceil(filteredSubmissions.length / pageSize)
+);
+
+const paginatedSubmissions = useMemo(() => {
+  const startIndex = (currentPage - 1) * pageSize;
+  return filteredSubmissions.slice(startIndex, startIndex + pageSize);
+}, [filteredSubmissions, currentPage]);
+
+useEffect(() => {
+  setCurrentPage(1);
+}, [search, languageFilter]);
+
+const examPointMap = useMemo(() => {
+  const map = new Map();
+
+  exams.forEach((exam) => {
+    map.set(String(exam.id), Number(exam.point ?? 0));
+  });
+
+  return map;
+}, [exams]);
+
+const maxTotalScore = useMemo(() => {
+  return exams.reduce((sum, exam) => sum + Number(exam.point ?? 0), 0);
+}, [exams]);
+
+const getSubmissionPointInfo = (submission) => {
+  const maxPoint = examPointMap.get(String(submission?.examId)) ?? 0;
+  const earnedPoint =
+    normalizeSubmissionStatus(submission) === 'accepted' ? maxPoint : 0;
+
+  return {
+    earnedPoint,
+    maxPoint,
+  };
+};
+
+const studentScoreData = useMemo(() => {
+  const latestSubmissionMap = new Map();
+
+  submissions.forEach((item) => {
+    if (!item.studentId || item.examId == null) return;
+
+    const key = `${item.studentId}__${item.examId}`;
+    const prev = latestSubmissionMap.get(key);
+
+    const currentTime = new Date(item.submitTime || 0).getTime();
+    const prevTime = new Date(prev?.submitTime || 0).getTime();
+
+    if (!prev || currentTime >= prevTime) {
+      latestSubmissionMap.set(key, item);
+    }
+  });
+
+  const studentMap = new Map();
+
+  latestSubmissionMap.forEach((item) => {
+    const studentId = item.studentId || 'unknown';
+
+    if (!studentMap.has(studentId)) {
+      studentMap.set(studentId, {
+        studentId,
+        studentName: item.studentName || '-',
+        submittedCount: 0,
+        acceptedCount: 0,
+        score: 0,
+        maxScore: maxTotalScore,
+      });
+    }
+
+    const row = studentMap.get(studentId);
+    const point = examPointMap.get(String(item.examId)) ?? 0;
+
+    row.submittedCount += 1;
+
+    if (normalizeSubmissionStatus(item) === 'accepted') {
+      row.acceptedCount += 1;
+      row.score += point;
+    }
+  });
+
+  return Array.from(studentMap.values())
+    .map((row) => ({
+      ...row,
+      scoreRate:
+        row.maxScore === 0 ? 0 : Math.round((row.score / row.maxScore) * 100),
+    }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return String(a.studentName).localeCompare(String(b.studentName), 'ko');
+    });
+}, [submissions, examPointMap, maxTotalScore]);
+
   const stats = useMemo(() => {
     const uniqueStudents = new Set(
       submissions.map((s) => s.studentId).filter(Boolean)
@@ -94,12 +244,12 @@ export default function AdminResultPage() {
       return acc;
     }, {});
 
-    const hourlyChartData = Object.keys(hourlyCount)
-      .sort()
-      .map((hour) => ({
-        hour,
-        count: hourlyCount[hour],
-      }));
+const hourlyChartData = Object.keys(hourlyCount)
+  .sort()
+  .map((hour) => ({
+    hour,
+    count: hourlyCount[hour],
+  }));
 
     return {
       totalSubmissions: submissions.length,
@@ -109,22 +259,27 @@ export default function AdminResultPage() {
     };
   }, [submissions]);
 
-  const feedbackStatusData = useMemo(() => {
-    const counter = submissions.reduce(
-      (acc, cur) => {
-        const isCorrect = cur.correct ?? cur.isCorrect ?? false;
-        if (isCorrect) acc.accepted += 1;
-        else acc.notAccepted += 1;
-        return acc;
-      },
-      { accepted: 0, notAccepted: 0 }
-    );
+const feedbackStatusData = useMemo(() => {
+  const counter = submissions.reduce(
+    (acc, cur) => {
+      const status = normalizeSubmissionStatus(cur);
 
-    return [
-      { name: '정답', value: counter.accepted },
-      { name: '오답/기타', value: counter.notAccepted },
-    ];
-  }, [submissions]);
+      if (status === 'accepted') {
+        acc.accepted += 1;
+      } else {
+        acc.notAccepted += 1;
+      }
+
+      return acc;
+    },
+    { accepted: 0, notAccepted: 0 }
+  );
+
+  return [
+    { name: '정답', value: counter.accepted },
+    { name: '오답/기타', value: counter.notAccepted },
+  ];
+}, [submissions]);
 
   const problemAccuracyData = useMemo(() => {
     const grouped = submissions.reduce((acc, cur) => {
@@ -160,12 +315,69 @@ export default function AdminResultPage() {
       .sort((a, b) => Number(a.examId) - Number(b.examId));
   }, [submissions]);
 
+  const aiWeaknessAnalysis = useMemo(() => {
+  const counts = {
+    accepted: 0,
+    logic: 0,
+    runtime: 0,
+    index: 0,
+    compile: 0,
+    ai_error: 0,
+    wrong: 0,
+    unknown: 0,
+  };
+
+  submissions.forEach((item) => {
+    const status = normalizeSubmissionStatus(item);
+    counts[status] = (counts[status] || 0) + 1;
+  });
+
+  const errorEntries = Object.entries(counts)
+    .filter(([key, value]) => key !== 'accepted' && value > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  const weakType = errorEntries.length > 0 ? errorEntries[0][0] : null;
+  const weakCount = errorEntries.length > 0 ? errorEntries[0][1] : 0;
+  const totalWrong = errorEntries.reduce((sum, [, value]) => sum + value, 0);
+
+  if (submissions.length === 0) {
+    return {
+      counts,
+      weakType: null,
+      weakTypeLabel: '없음',
+      weakCount: 0,
+      totalWrong: 0,
+      summary: '아직 제출 데이터가 없어 AI 취약 유형 분석을 대기 중입니다.',
+      guide: '학생 제출이 발생하면 오류 유형별로 자동 분석되어 가장 많이 발생한 취약 유형을 표시합니다.',
+    };
+  }
+
+  return {
+    counts,
+    weakType,
+    weakTypeLabel: weakType ? AI_ERROR_LABELS[weakType] : '없음',
+    weakCount,
+    totalWrong,
+    summary:
+      totalWrong === 0
+        ? '현재 제출 기준으로 주요 오류가 발견되지 않았습니다.'
+        : `전체 오답 ${totalWrong}건 중 ${AI_ERROR_LABELS[weakType]}가 ${weakCount}건으로 가장 많이 발생했습니다.`,
+    guide:
+      totalWrong === 0
+        ? '현재 정답 비율이 높습니다. 다음 단계에서는 난이도 높은 테스트케이스를 추가해 검증하면 좋습니다.'
+        : AI_ERROR_GUIDE[weakType] || '상세 제출 데이터를 기준으로 추가 확인이 필요합니다.',
+  };
+}, [submissions]);
   const formatDateTime = (value) => {
     if (!value) return '-';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '-';
     return date.toLocaleString('ko-KR');
   };
+
+const selectedPointInfo = selectedSubmission
+  ? getSubmissionPointInfo(selectedSubmission)
+  : null;
 
   return (
     <div className="admin-result-page">
@@ -199,6 +411,78 @@ export default function AdminResultPage() {
         </div>
       </div>
 
+      <div className="ai-analysis-card">
+        <div className="ai-analysis-main">
+          <span className="ai-analysis-badge">AI Analysis</span>
+          <h3>AI 취약 유형 분석</h3>
+          <p>{aiWeaknessAnalysis.summary}</p>
+          <p className="ai-analysis-guide">{aiWeaknessAnalysis.guide}</p>
+        </div>
+
+        <div className="ai-weak-box">
+          <span>가장 많은 오류 유형</span>
+          <strong>{aiWeaknessAnalysis.weakTypeLabel}</strong>
+          <small>
+            {aiWeaknessAnalysis.totalWrong === 0
+              ? '오답 데이터 없음'
+              : `${aiWeaknessAnalysis.weakCount}건 발생`}
+          </small>
+        </div>
+
+        <div className="ai-status-chip-list">
+          {['accepted', 'logic', 'runtime', 'index', 'compile', 'ai_error', 'wrong', 'unknown'].map((key) => (
+            <span key={key} className={`ai-status-chip ${key}`}>
+              {AI_ERROR_LABELS[key]} {aiWeaknessAnalysis.counts[key]}건
+            </span>
+          ))}
+        </div>
+      </div>
+
+<div className="student-score-card">
+  <div className="student-score-card-header">
+    <div>
+      <h3>학생별 점수 현황</h3>
+      <p>학생별 최신 제출 기준으로 총점과 정답 수를 확인합니다.</p>
+    </div>
+    <span>현재 시험 만점: {maxTotalScore}점</span>
+  </div>
+
+  {studentScoreData.length === 0 ? (
+    <div className="student-score-empty">
+      아직 학생 제출 데이터가 없습니다.
+    </div>
+  ) : (
+    <div className="student-score-table-wrap">
+      <table className="student-score-table">
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>학번</th>
+            <th>점수</th>
+            <th>달성률</th>
+            <th>정답 / 제출</th>
+          </tr>
+        </thead>
+        <tbody>
+          {studentScoreData.map((row) => (
+            <tr key={row.studentId}>
+              <td>{row.studentName}</td>
+              <td>{row.studentId}</td>
+              <td>
+                <strong>{row.score}</strong> / {row.maxScore}점
+              </td>
+              <td>{row.scoreRate}%</td>
+              <td>
+                {row.acceptedCount} / {row.submittedCount}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</div>
+
       <div className="chart-grid">
         <div className="chart-card">
           <h3>언어별 제출 비율</h3>
@@ -225,14 +509,22 @@ export default function AdminResultPage() {
         <div className="chart-card">
           <h3>시간대별 제출 수</h3>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={stats.hourlyChartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="hour" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="count" name="제출 수" fill="#3b82f6" />
-            </BarChart>
+<BarChart data={stats.hourlyChartData} barCategoryGap="45%">
+  <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
+  <XAxis dataKey="hour" />
+  <YAxis allowDecimals={false} />
+  <Tooltip
+    formatter={(value) => [`${value}건`, '제출 수']}
+  />
+  <Legend />
+  <Bar
+    dataKey="count"
+    name="제출 수"
+    fill="#3b82f6"
+    barSize={40}
+    radius={[6, 6, 0, 0]}
+  />
+</BarChart>
           </ResponsiveContainer>
         </div>
 
@@ -260,7 +552,7 @@ export default function AdminResultPage() {
         <div className="chart-card">
           <h3>문제별 정답률</h3>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={problemAccuracyData}>
+<BarChart data={problemAccuracyData} barCategoryGap="45%">
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" />
               <YAxis domain={[0, 100]} allowDecimals={false} />
@@ -271,12 +563,13 @@ export default function AdminResultPage() {
                 }}
               />
               <Legend />
-              <Bar dataKey="rate" name="정답률" fill="#22c55e">
-                <LabelList
-                  dataKey="rate"
-                  position="top"
-                  formatter={(value) => `${value}%`}
-                />
+<Bar
+  dataKey="rate"
+  name="정답률"
+  fill="#22c55e"
+  barSize={40}
+  radius={[6, 6, 0, 0]}
+>
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -327,7 +620,7 @@ export default function AdminResultPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSubmissions.map((item) => {
+                  {paginatedSubmissions.map((item) => {
                     const isCorrect = item.correct ?? item.isCorrect ?? false;
 
                     return (
@@ -352,6 +645,48 @@ export default function AdminResultPage() {
               </table>
             )}
           </div>
+
+	          {!loadingList && filteredSubmissions.length > 0 && (
+            <div className="submission-pagination">
+              <button
+                type="button"
+                className="pagination-btn"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                이전
+              </button>
+
+              {Array.from({ length: totalSubmissionPages }, (_, index) => index + 1).map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                type="button"
+                className="pagination-btn"
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(totalSubmissionPages, prev + 1))
+                }
+                disabled={currentPage === totalSubmissionPages}
+              >
+                다음
+              </button>
+
+              <span className="pagination-info">
+                {filteredSubmissions.length}개 중{' '}
+                {(currentPage - 1) * pageSize + 1}-
+                {Math.min(currentPage * pageSize, filteredSubmissions.length)}개 표시
+              </span>
+            </div>
+          )}
+
         </div>
 
         <div className="submission-detail-panel">
@@ -369,6 +704,10 @@ export default function AdminResultPage() {
                 <p><strong>학번:</strong> {selectedSubmission.studentId}</p>
                 <p><strong>이름:</strong> {selectedSubmission.studentName}</p>
                 <p><strong>언어:</strong> {selectedSubmission.language}</p>
+		<p>
+ 		 <strong>점수:</strong>{' '}
+ 		 {selectedPointInfo?.earnedPoint ?? 0}/{selectedPointInfo?.maxPoint ?? 0}점
+		</p>
                 <p><strong>제출 시간:</strong> {formatDateTime(selectedSubmission.submitTime)}</p>
               </div>
 

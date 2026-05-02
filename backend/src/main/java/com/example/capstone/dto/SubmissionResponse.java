@@ -17,6 +17,13 @@ public class SubmissionResponse {
     private boolean isCorrect;
     private LocalDateTime submitTime;
 
+    private String aiSummary;
+    private String aiWrongReason;
+    private String aiSolutionDirection;
+    private String aiImprovement;
+
+    private Integer earnedPoint;
+
     public SubmissionResponse(Submission s) {
         this.id = s.getId();
         this.examId = s.getExamId();
@@ -25,7 +32,13 @@ public class SubmissionResponse {
         this.language = s.getLanguage();
         this.status = s.getStatus();
         this.isCorrect = s.getStatus() != null &&
-                 s.getStatus().trim().equalsIgnoreCase("accepted");
+                s.getStatus().trim().equalsIgnoreCase("accepted");
         this.submitTime = s.getSubmitTime();
+
+        this.aiSummary = s.getAiSummary();
+        this.aiWrongReason = s.getAiWrongReason();
+        this.aiSolutionDirection = s.getAiSolutionDirection();
+        this.aiImprovement = s.getAiImprovement();
+	this.earnedPoint = s.getEarnedPoint();
     }
 }

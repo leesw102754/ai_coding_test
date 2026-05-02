@@ -37,6 +37,16 @@ AI 기반 코드 오류 분석 및 문제 출제 보조 시스템입니다.
 * 문제 및 테스트케이스 source 구분 저장  
   (manual / ai / ai_edited)
 * 관리자 검토 후 저장 가능한 출제 보조 기능
+* 문제별 배점 설정 및 저장
+* 제출 결과 기반 점수 계산
+* 학생별 총점 / 만점 / 점수 달성률 표시
+* 관리자 결과 화면에서 학생별 점수 현황 제공
+* 관리자 결과 화면에서 AI 취약 유형 분석 제공
+* 제출 결과 DB 저장 및 재로그인 후 결과 유지
+* 동일 학생의 동일 문제 중복 제출 방지
+* 문제 삭제 시 관련 테스트케이스 및 제출 데이터 정리
+* 관리자 전체 제출 목록 페이지네이션 지원
+* 학생별 점수 현황 스크롤 표시 지원
 
 ---
 
@@ -44,16 +54,18 @@ AI 기반 코드 오류 분석 및 문제 출제 보조 시스템입니다.
 
 ```text
 문제 수동 등록 또는 AI 문제 초안 생성
+→ 배점 설정
 → 테스트케이스 수동 입력 또는 AI 추천
 → 관리자 검토 / 수정
-→ DB 저장 (source 구분 포함)
-→ 코드 제출
+→ DB 저장 (source, point 구분 포함)
+→ 학생 코드 제출
 → 백엔드 채점 (테스트케이스 기반)
 → JudgeResult 생성
 → AI 서버 호출 (/analyze-code)
 → 오류 분석 수행
-→ JSON 결과 반환
-→ DB 저장 및 프론트 출력
+→ 상태(status), AI 피드백, 획득 점수(earnedPoint) DB 저장
+→ 학생 결과 화면 출력
+→ 관리자 결과 화면에서 전체 통계 / 학생별 점수 / AI 취약 유형 분석 확인
 ```
 
 ---
@@ -501,18 +513,230 @@ def fallback_feedback(error_type):
 * 문제 + 테스트케이스 통합 관리
 * 문제 및 테스트케이스 source 구분 저장  
   (manual / ai / ai_edited)
+* 문제별 배점 설정
+* 문제 배점 수정
+* 전체 제출 결과 조회
+* 학생별 점수 현황 확인
+* 제출별 상세 코드 및 AI 피드백 확인
+* 제출별 획득 점수 확인
+* AI 취약 유형 분석 카드 제공
+* 오류 유형별 제출 현황 확인
+* 전체 제출 목록 페이지네이션
+* 학생별 점수 현황 스크롤 표시
+* 문제 삭제 시 관련 테스트케이스 / 제출 데이터 정리
 
 👉 Postman 없이 UI에서 관리 가능  
-👉 관리자 검토 후 저장하는 출제 보조 기능 지원
+👉 관리자 검토 후 저장하는 출제 보조 기능 지원  
+👉 제출 결과와 점수 현황을 관리자 화면에서 통합 확인 가능
 
 ---
 
-## 16. 🌐 서버 주소
+## 16. 👨‍🎓 학생 기능
+
+* 문제 목록 확인
+* 문제별 테스트케이스 확인
+* 코드 작성 및 제출
+* 제출 후 AI 피드백 확인
+* 오류 유형 확인  
+  (accepted / logic / runtime / index / compile)
+* 문제별 획득 점수 확인
+* 전체 총점 / 만점 / 점수 달성률 확인
+* 로그아웃 후 재로그인해도 제출 결과 유지
+* 이미 제출한 문제 재제출 방지
+
+---
+
+## 17. 🗄 저장되는 주요 데이터
+
+### EXAM
+
+| 필드 | 설명 |
+|---|---|
+| id | 문제 ID |
+| title | 문제 제목 |
+| description | 문제 설명 |
+| difficulty | 난이도 |
+| point | 문제 배점 |
+| source | 문제 생성 방식 |
+
+### TEST_CASE
+
+| 필드 | 설명 |
+|---|---|
+| id | 테스트케이스 ID |
+| examId | 연결된 문제 ID |
+| input | 입력값 |
+| expectedOutput | 기대 출력값 |
+| source | manual / ai |
+| description | 테스트케이스 설명 |
+
+### SUBMISSION
+
+| 필드 | 설명 |
+|---|---|
+| id | 제출 ID |
+| examId | 제출한 문제 ID |
+| studentId | 학생 학번 |
+| studentName | 학생 이름 |
+| language | 제출 언어 |
+| code | 제출 코드 |
+| status | accepted / logic / runtime / index / compile |
+| earnedPoint | 획득 점수 |
+| submitTime | 제출 시간 |
+| aiSummary | AI 요약 |
+| aiWrongReason | 오류 원인 |
+| aiSolutionDirection | 해결 방향 |
+| aiImprovement | 개선 피드백 |
+
+---
+
+## 18. 📊 점수 및 결과 관리
+
+### 학생 결과 화면
+
+학생은 제출 후 결과 화면에서 다음 정보를 확인할 수 있습니다.
+
+* 정답 / 제출 수
+* 전체 정답률
+* 총점 / 만점
+* 점수 달성률
+* 문제별 획득 점수
+* 문제별 AI 피드백
+* 오류 유형 및 개선 방향
+
+```text
+예시)
+
+정답 / 제출: 1 / 2
+전체 정답률: 50%
+총점 / 만점: 50 / 100
+점수 달성률: 50%
+
+문제 1: 50 / 50점
+문제 2: 0 / 50점
+```
+
+### 관리자 결과 화면
+
+관리자는 전체 제출 데이터를 기반으로 다음 정보를 확인할 수 있습니다.
+
+* 전체 제출 수
+* 제출 학생 수
+* 언어별 제출 비율
+* 시간대별 제출 수
+* 제출 상태 비율
+* 문제별 정답률
+* AI 취약 유형 분석
+* 학생별 점수 현황
+* 제출별 상세 코드
+* 제출별 AI 피드백
+* 제출별 획득 점수
+
+```text
+예시)
+
+학생별 점수 현황
+
+이름      학번       점수       달성률      정답 / 제출
+이승욱    20260001   50/100     50%        1/2
+```
+
+---
+
+## 19. 🔒 중복 제출 방지
+
+동일한 학생이 동일한 문제를 여러 번 제출하여  
+통계나 점수가 중복 반영되는 문제를 방지합니다.
+
+### 적용 방식
+
+```text
+프론트엔드
+→ 제출 성공 후 제출 버튼 비활성화
+→ 이미 제출한 문제 재진입 방지
+
+백엔드
+→ studentId + examId 기준으로 기존 제출 여부 확인
+→ 이미 제출한 경우 DB 저장 없이 중복 제출 응답 반환
+```
+
+### 중복 제출 응답 예시
+
+```json
+{
+  "message": "이미 제출한 문제입니다.",
+  "duplicated": true
+}
+```
+
+---
+
+## 20. 🧹 문제 삭제 시 데이터 정리
+
+문제를 삭제할 때 해당 문제와 연결된 테스트케이스와 제출 데이터도 함께 정리합니다.
+
+### 삭제 대상
+
+```text
+EXAM
+TEST_CASE
+SUBMISSION
+```
+
+### 목적
+
+* 삭제된 문제의 테스트케이스가 남는 문제 방지
+* 삭제된 문제의 제출 기록이 관리자 통계에 포함되는 문제 방지
+* 문제별 정답률 / AI 취약 유형 분석 / 학생별 점수 계산 오류 방지
+
+### 확인용 SQL
+
+```sql
+SELECT * FROM EXAM ORDER BY ID;
+SELECT * FROM TEST_CASE ORDER BY ID;
+SELECT * FROM SUBMISSION ORDER BY ID DESC;
+```
+
+삭제된 문제의 데이터 확인:
+
+```sql
+SELECT * FROM TEST_CASE WHERE EXAM_ID = 삭제한문제ID;
+SELECT * FROM SUBMISSION WHERE EXAM_ID = 삭제한문제ID;
+```
+
+정상이라면 해당 문제 ID에 대해 `no rows`가 출력되어야 합니다.
+
+---
+
+## 21. 🧪 시연 전 DB 초기화
+
+시연 전 문제 번호와 제출 데이터를 깔끔하게 정리하기 위해  
+아래 SQL을 사용할 수 있습니다.
+
+```sql
+DELETE FROM SUBMISSION;
+DELETE FROM TEST_CASE;
+DELETE FROM EXAM_RECORD;
+DELETE FROM EXAM;
+
+ALTER TABLE SUBMISSION ALTER COLUMN ID RESTART WITH 1;
+ALTER TABLE TEST_CASE ALTER COLUMN ID RESTART WITH 1;
+ALTER TABLE EXAM_RECORD ALTER COLUMN ID RESTART WITH 1;
+ALTER TABLE EXAM ALTER COLUMN ID RESTART WITH 1;
+```
+
+테이블 확인:
+
+```sql
+SHOW TABLES;
+```
+
+---
+
+## 22. 🌐 서버 주소
 
 ```text
 Frontend: http://localhost:3000
 Backend: http://localhost:8080
 AI Server: http://127.0.0.1:8000
 ```
-
----

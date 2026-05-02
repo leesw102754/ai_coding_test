@@ -39,4 +39,6 @@ public class Submission {
     private String aiImprovement;      // 개선 피드백
 
     private String status;
+
+    private Integer earnedPoint;
 }
