@@ -68,3 +68,14 @@ export const runExamTestCases = async (examId, data) => {
   const res = await API.post(`/exams/${examId}/run-tests`, data);
   return res.data;
 };
+
+export const reanalyzeSubmissionWithAi = async (submissionId) => {
+  const res = await API.post(`/submissions/${submissionId}/reanalyze-ai`);
+  return res.data;
+};
+
+export const reanalyzeAllSubmissionsWithAi = async () => {
+  const res = await API.post('/submissions/reanalyze-ai');
+  return res.data;
+};
+

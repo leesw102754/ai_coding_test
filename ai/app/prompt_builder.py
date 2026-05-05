@@ -134,11 +134,21 @@ Judge 상태:
 실패 케이스:
 {failed_cases_text}
 
+피드백 강화 규칙:
+- 정답 전체 코드는 절대 제공하지 마세요.
+- solution_direction에는 완성 코드를 쓰지 말고 수정해야 할 위치와 방향만 설명하세요.
+- failed_cases가 있으면 첫 번째 실패 케이스를 가장 중요한 근거로 사용하세요.
+- wrong_reason에는 입력값, 기대 출력, 실제 출력의 차이가 드러나야 합니다.
+- 학생 코드가 짧거나 단순해도 과장해서 설명하지 마세요.
+- 문제 조건이 복잡해 원인을 단정하기 어려우면 "추가 확인이 필요합니다"라고 표현하세요.
+- 제한사항이 제공된 경우, 경계값이나 입력 범위와 관련된 오류 가능성을 함께 고려하세요.
+- 피드백은 학생에게 힌트를 주는 용도이며, 정답을 대신 작성하는 용도가 아닙니다.
+
 출력 지침:
-- summary: 한 문장으로 간결하게 작성
+- summary: 40자 내외의 한 문장으로 작성
 - wrong_reason: 실패한 테스트케이스의 입력/기대 출력/실제 출력 차이를 근거로 한두 문장 작성
-- solution_direction: "~해야 합니다" 형태로 한 문장 작성
-- improvement_feedback: "~가지세요" 형태로 한 문장 작성
+- solution_direction: 정답 코드를 쓰지 말고 수정 방향만 "~해야 합니다" 형태로 한 문장 작성
+- improvement_feedback: 다음 제출에서 확인할 습관을 "~가지세요" 형태로 한 문장 작성
 
 error_type별 작성 규칙:
 - accepted: 오류가 없다고 쓰고, 현재 코드를 유지하라고 안내하세요.
@@ -248,5 +258,6 @@ def build_problem_draft_prompt(data: GenerateProblemDraftRequest) -> str:
 7. 정답 코드는 절대 작성하지 않습니다.
 8. 출력은 반드시 JSON만 반환합니다.
 9. constraints는 학생 문제 화면의 제한사항 영역에 그대로 표시될 수 있게 작성합니다.
+10. description과 constraints의 내용이 서로 중복되지 않게 작성합니다.
 """
     return prompt.strip()

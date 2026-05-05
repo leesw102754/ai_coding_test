@@ -13,7 +13,12 @@ import {
   Legend,
   LabelList,
 } from 'recharts';
-import { getAllSubmissions, getSubmissionDetail, getProblems } from '../api/problemApi';
+import {
+  getAllSubmissions,
+  getSubmissionDetail,
+  getProblems,
+  reanalyzeAllSubmissionsWithAi,
+} from '../api/problemApi';
 import './AdminResultPage.css';
 
 const AI_ERROR_LABELS = {
@@ -56,6 +61,8 @@ const normalizeSubmissionStatus = (item) => {
 };
 
 export default function AdminResultPage() {
+
+const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [submissions, setSubmissions] = useState([]);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
@@ -67,21 +74,21 @@ const [exams, setExams] = useState([]);
 const [currentPage, setCurrentPage] = useState(1);
 const pageSize = 10;
 
-  useEffect(() => {
-    const fetchSubmissions = async () => {
-      try {
-        setLoadingList(true);
-        const data = await getAllSubmissions();
-        setSubmissions(data || []);
-      } catch (err) {
-        console.error('전체 제출 목록 조회 실패:', err);
-      } finally {
-        setLoadingList(false);
-      }
-    };
+const fetchSubmissions = async () => {
+  try {
+    setLoadingList(true);
+    const data = await getAllSubmissions();
+    setSubmissions(data || []);
+  } catch (err) {
+    console.error('전체 제출 목록 조회 실패:', err);
+  } finally {
+    setLoadingList(false);
+  }
+};
 
-    fetchSubmissions();
-  }, []);
+useEffect(() => {
+  fetchSubmissions();
+}, []);
 
 useEffect(() => {
   const fetchExams = async () => {
@@ -109,6 +116,41 @@ useEffect(() => {
       setLoadingDetail(false);
     }
   };
+
+const handleReanalyzeAllWithAi = async () => {
+  const confirmed = window.confirm(
+    'AI 서버가 켜져 있어야 합니다.\n현재 저장된 제출 코드를 AI로 다시 분석하시겠습니까?'
+  );
+
+  if (!confirmed) return;
+
+  try {
+    setIsReanalyzing(true);
+
+    const result = await reanalyzeAllSubmissionsWithAi();
+
+    alert(
+      `AI 피드백 재생성 완료\n성공: ${result.successCount}건\n실패: ${result.failCount}건`
+    );
+
+    await fetchSubmissions();
+
+    if (selectedId) {
+      const detail = await getSubmissionDetail(selectedId);
+      setSelectedSubmission(detail);
+    }
+  } catch (err) {
+    console.error('AI 피드백 재생성 실패:', err);
+
+    const message =
+      err.response?.data?.message ||
+      'AI 피드백 재생성 중 오류가 발생했습니다. AI 서버가 켜져 있는지 확인하세요.';
+
+    alert(message);
+  } finally {
+    setIsReanalyzing(false);
+  }
+};
 
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((item) => {
@@ -143,6 +185,21 @@ const examPointMap = useMemo(() => {
 
   exams.forEach((exam) => {
     map.set(String(exam.id), Number(exam.point ?? 0));
+  });
+
+  return map;
+}, [exams]);
+
+const examTitleMap = useMemo(() => {
+  const map = new Map();
+
+  exams.forEach((exam, index) => {
+    map.set(
+      String(exam.id),
+      exam.title && exam.title.trim() !== ''
+        ? exam.title
+        : `문제 ${index + 1}`
+    );
   });
 
   return map;
@@ -378,6 +435,127 @@ if (status === 'accepted') {
         : AI_ERROR_GUIDE[weakType] || '상세 제출 데이터를 기준으로 추가 확인이 필요합니다.',
   };
 }, [submissions]);
+
+const languageAccuracyData = useMemo(() => {
+  const grouped = new Map();
+
+  submissions.forEach((item) => {
+    const language = item.language || 'unknown';
+
+    if (!grouped.has(language)) {
+      grouped.set(language, {
+        language,
+        total: 0,
+        accepted: 0,
+        wrong: 0,
+        rate: 0,
+      });
+    }
+
+    const row = grouped.get(language);
+    row.total += 1;
+
+    if (normalizeSubmissionStatus(item) === 'accepted') {
+      row.accepted += 1;
+    } else {
+      row.wrong += 1;
+    }
+  });
+
+  return Array.from(grouped.values())
+    .map((row) => ({
+      ...row,
+      rate: row.total === 0 ? 0 : Math.round((row.accepted / row.total) * 100),
+    }))
+    .sort((a, b) => {
+      if (b.rate !== a.rate) return b.rate - a.rate;
+      return b.total - a.total;
+    });
+}, [submissions]);
+
+const problemErrorTypeData = useMemo(() => {
+  const grouped = new Map();
+
+  submissions.forEach((item) => {
+    if (item.examId == null) return;
+
+    const examKey = String(item.examId);
+
+    if (!grouped.has(examKey)) {
+      grouped.set(examKey, {
+        examId: item.examId,
+        title: examTitleMap.get(examKey) || `문제 ${item.examId}`,
+        total: 0,
+        accepted: 0,
+        wrong: 0,
+        correctRate: 0,
+        errorCounts: {},
+        mainErrorKey: 'none',
+        mainErrorLabel: '오답 없음',
+        mainErrorCount: 0,
+      });
+    }
+
+    const row = grouped.get(examKey);
+    const status = normalizeSubmissionStatus(item);
+
+    row.total += 1;
+
+    if (status === 'accepted') {
+      row.accepted += 1;
+    } else {
+      row.wrong += 1;
+      row.errorCounts[status] = (row.errorCounts[status] || 0) + 1;
+    }
+  });
+
+  return Array.from(grouped.values())
+    .map((row) => {
+      const errorEntries = Object.entries(row.errorCounts).sort(
+        (a, b) => b[1] - a[1]
+      );
+
+      const mainErrorKey = errorEntries[0]?.[0] || 'none';
+      const mainErrorCount = errorEntries[0]?.[1] || 0;
+
+      return {
+        ...row,
+        correctRate:
+          row.total === 0 ? 0 : Math.round((row.accepted / row.total) * 100),
+        mainErrorKey,
+        mainErrorCount,
+        mainErrorLabel:
+          mainErrorCount > 0
+            ? AI_ERROR_LABELS[mainErrorKey] || mainErrorKey
+            : '오답 없음',
+      };
+    })
+    .sort((a, b) => {
+      if (b.wrong !== a.wrong) return b.wrong - a.wrong;
+      return a.correctRate - b.correctRate;
+    });
+}, [submissions, examTitleMap]);
+
+const advancedSummaryData = useMemo(() => {
+  const topStudent = studentScoreData[0];
+  const hardestProblem = problemErrorTypeData.find((item) => item.wrong > 0);
+  const bestLanguage = languageAccuracyData[0];
+
+  return {
+topStudent:
+  topStudent && topStudent.score > 0
+    ? `${topStudent.studentName} / ${topStudent.score}점`
+    : '최고 점수 없음',
+    hardestProblem: hardestProblem
+      ? `${hardestProblem.title} / 오답 ${hardestProblem.wrong}건`
+      : '오답 데이터 없음',
+bestLanguage:
+  bestLanguage && bestLanguage.accepted > 0
+    ? `${bestLanguage.language} / ${bestLanguage.rate}%`
+    : '정답 데이터 없음',
+  };
+}, [studentScoreData, problemErrorTypeData, languageAccuracyData]);
+
   const formatDateTime = (value) => {
     if (!value) return '-';
     const date = new Date(value);
@@ -397,6 +575,16 @@ const selectedPointInfo = selectedSubmission
           <p>전체 제출 현황과 상세 피드백을 한눈에 확인할 수 있습니다.</p>
         </div>
       </div>
+
+  <button
+    type="button"
+    className="ai-reanalyze-button"
+    onClick={handleReanalyzeAllWithAi}
+    disabled={isReanalyzing || submissions.length === 0}
+  >
+    {isReanalyzing ? 'AI 피드백 생성 중...' : 'AI 피드백 일괄 생성'}
+  </button>
+</div>
 
       <div className="summary-grid">
         <div className="summary-card">
@@ -491,6 +679,109 @@ const selectedPointInfo = selectedSubmission
       </table>
     </div>
   )}
+</div>
+
+<div className="advanced-summary-grid">
+  <div className="advanced-summary-card">
+    <span>최고 점수 학생</span>
+    <strong>{advancedSummaryData.topStudent}</strong>
+    <p>학생별 최신 제출 기준으로 계산됩니다.</p>
+  </div>
+
+  <div className="advanced-summary-card">
+    <span>최다 오답 문제</span>
+    <strong>{advancedSummaryData.hardestProblem}</strong>
+    <p>오답 수가 가장 많은 문제를 표시합니다.</p>
+  </div>
+
+  <div className="advanced-summary-card">
+    <span>최고 정답률 언어</span>
+    <strong>{advancedSummaryData.bestLanguage}</strong>
+    <p>언어별 제출 결과를 기준으로 계산합니다.</p>
+  </div>
+</div>
+
+<div className="analysis-table-grid">
+  <div className="analysis-table-card">
+    <div className="analysis-table-header">
+      <div>
+        <h3>문제별 오류 유형 분석</h3>
+        <p>문제별로 어떤 오류가 많이 발생했는지 확인합니다.</p>
+      </div>
+    </div>
+
+    {problemErrorTypeData.length === 0 ? (
+      <div className="analysis-empty">제출 데이터가 없습니다.</div>
+    ) : (
+      <div className="analysis-table-wrap">
+        <table className="analysis-table">
+          <thead>
+            <tr>
+              <th>문제</th>
+              <th>제출</th>
+              <th>정답</th>
+              <th>오답</th>
+              <th>주요 오류</th>
+              <th>정답률</th>
+            </tr>
+          </thead>
+          <tbody>
+            {problemErrorTypeData.slice(0, 8).map((row) => (
+              <tr key={row.examId}>
+                <td>{row.title}</td>
+                <td>{row.total}</td>
+                <td>{row.accepted}</td>
+                <td>{row.wrong}</td>
+                <td>
+                  {row.mainErrorLabel}
+                  {row.mainErrorCount > 0 ? ` ${row.mainErrorCount}건` : ''}
+                </td>
+                <td>{row.correctRate}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+
+  <div className="analysis-table-card">
+    <div className="analysis-table-header">
+      <div>
+        <h3>언어별 정답률</h3>
+        <p>언어별 제출 수와 정답률을 확인합니다.</p>
+      </div>
+    </div>
+
+    {languageAccuracyData.length === 0 ? (
+      <div className="analysis-empty">제출 데이터가 없습니다.</div>
+    ) : (
+      <div className="analysis-table-wrap">
+        <table className="analysis-table">
+          <thead>
+            <tr>
+              <th>언어</th>
+              <th>제출</th>
+              <th>정답</th>
+              <th>오답</th>
+              <th>정답률</th>
+            </tr>
+          </thead>
+          <tbody>
+            {languageAccuracyData.map((row) => (
+              <tr key={row.language}>
+                <td>{row.language}</td>
+                <td>{row.total}</td>
+                <td>{row.accepted}</td>
+                <td>{row.wrong}</td>
+                <td>{row.rate}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
 </div>
 
       <div className="chart-grid">
