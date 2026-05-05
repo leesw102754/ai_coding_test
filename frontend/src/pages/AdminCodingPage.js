@@ -12,9 +12,10 @@ export default function AdminCodingPage() {
   const [problemSource, setProblemSource] = useState('manual');
   const [aiProblemLoading, setAiProblemLoading] = useState(false);
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [difficulty, setDifficulty] = useState('easy');
+const [title, setTitle] = useState('');
+const [description, setDescription] = useState('');
+const [constraints, setConstraints] = useState('');
+const [difficulty, setDifficulty] = useState('easy');
 
   const [testInput, setTestInput] = useState('');
   const [expectedOutput, setExpectedOutput] = useState('');
@@ -54,10 +55,11 @@ const handleAiProblemGenerate = async () => {
       prompt: problemPrompt,
     });
 
-    setTitle(res.title || '');
-    setDescription(res.description || '');
-    setDifficulty(res.difficulty || 'easy');
-    setProblemSource('ai');
+setTitle(res.title || '');
+setDescription(res.description || '');
+setConstraints(res.constraints || '');
+setDifficulty(res.difficulty || 'easy');
+setProblemSource('ai');
 
     const aiCases = (res.testCases || []).map((tc) => ({
       input: tc.input || '',
@@ -188,13 +190,14 @@ try {
   setLoading(true);
   setMessage('');
 
-  const createdExam = await createExam({
-    title: title.trim(),
-    description: description.trim(),
-    difficulty,
-    point: parsedPoint,
-    source: problemSource,
-  });
+const createdExam = await createExam({
+  title: title.trim(),
+  description: description.trim(),
+  constraints: constraints.trim(),
+  difficulty,
+  point: parsedPoint,
+  source: problemSource,
+});
 
 console.log('등록된 문제:', createdExam);
 
@@ -217,13 +220,14 @@ console.log('등록된 문제:', createdExam);
       setMessage('문제와 테스트케이스가 모두 등록되었습니다.');
       setProblemPrompt('');
       setProblemSource('manual');
-	setTitle('');
-	setDescription('');
-	setDifficulty('easy');
-	setPoint(20);
-	setTestInput('');
-	setExpectedOutput('');
-	setTestCases([]);
+setTitle('');
+setDescription('');
+setConstraints('');
+setDifficulty('easy');
+setPoint(20);
+setTestInput('');
+setExpectedOutput('');
+setTestCases([]);
     } catch (err) {
       console.error(err);
       setMessage('문제 등록에 실패했습니다.');
@@ -290,6 +294,20 @@ console.log('등록된 문제:', createdExam);
               rows={8}
             />
           </div>
+
+<div className="admincodingpage-form-group">
+  <label className="admincodingpage-label">제한사항</label>
+  <textarea
+    className="admincodingpage-textarea admincodingpage-constraint-textarea"
+    placeholder={'예:\n-1000000 ≤ A, B ≤ 1000000\n출력은 정수 하나만 출력한다.'}
+    value={constraints}
+    onChange={(e) => {
+      setConstraints(e.target.value);
+      if (problemSource === 'ai') setProblemSource('ai_edited');
+    }}
+    rows={4}
+  />
+</div>
 
           <div className="admincodingpage-form-group">
             <label className="admincodingpage-label">난이도</label>

@@ -218,7 +218,7 @@ const updatedProblem = {
             </div>
           ) : (
             <div className="admin-exam-list">
-              {filteredProblems.map((problem) => (
+              {filteredProblems.map((problem, index) => (
                 <div
                   key={problem.id}
                   className={`admin-exam-card ${
@@ -227,7 +227,7 @@ const updatedProblem = {
                   onClick={() => handleSelectProblem(problem)}
                 >
                   <div className="admin-exam-card-top">
-                    <span className="admin-exam-id">문제 #{problem.id}</span>
+                    <span className="admin-exam-id">문제 #{index + 1}</span>
 		<span className="admin-exam-point">
  			 배점 {problem.point ?? 0}점
 		</span>

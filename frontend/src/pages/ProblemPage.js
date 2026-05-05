@@ -9,6 +9,8 @@ import {
   submitExam,
   getTestCasesByExamId,
   getSubmissionsByStudentId,
+  getAllSubmissions,
+  runExamTestCases,
 } from '../api/problemApi';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { toast } from 'react-toastify';
@@ -34,6 +36,7 @@ export default function ProblemPage() {
   const [code, setCode] = useState('');
   const [output, setOutput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('description');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [warningVisible, setWarningVisible] = useState(false);
@@ -51,6 +54,9 @@ export default function ProblemPage() {
   const timerRef = useRef(null);
   const warningRef = useRef(false);
   const submitLockRef = useRef(false);
+
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [submissionSummary, setSubmissionSummary] = useState(null);
 
 useEffect(() => {
   const checkAlreadySubmitted = async () => {
@@ -264,33 +270,108 @@ if (alreadySubmitted) {
     setExitConfirm(false);
   };
 
-  const runCode = () => {
-    setIsRunning(true);
-    setOutput('');
-    setTestResults([]);
+  const getEditableCodeArea = (source = '') => {
+    const match = source.match(
+      /(?:\/\/|#)\s*-{5,}\s*([\s\S]*?)\s*(?:\/\/|#)\s*-{5,}/
+    );
 
-    setTimeout(() => {
-      try {
-        setOutput(
-          `[${language.toUpperCase()}] 로컬 미리보기입니다.\n실제 테스트케이스 검증 및 채점은 제출 후 서버에서 처리됩니다.`
-        );
-
-        setTestResults(
-          testCases.map((tc, i) => ({
-            id: i + 1,
-            input: tc.input,
-            expected: tc.expectedOutput || tc.expected,
-            actual: '미리보기 완료 (실제 채점은 서버에서 처리)',
-            passed: 'preview',
-          }))
-        );
-      } catch (err) {
-        setOutput(`실행 오류: ${err.message}`);
-      }
-
-      setIsRunning(false);
-    }, 500);
+    return match ? match[1].trim() : source.trim();
   };
+
+  const hasWrittenSolution = (source = '') => {
+    const editableCode = getEditableCodeArea(source);
+
+    const codeWithoutComments = editableCode
+      .split('\n')
+      .map((line) =>
+        line
+          .replace(/\/\/.*$/g, '')
+          .replace(/#.*$/g, '')
+          .trim()
+      )
+      .join('');
+
+    return codeWithoutComments.length > 0;
+  };
+
+  const runCode = async () => {
+  if (!hasWrittenSolution(code)) {
+    const message =
+      '실행할 코드가 없습니다. // ---------- 또는 # ---------- 사이에 풀이 코드를 작성해 주세요.';
+
+    setOutput(message);
+    setTestResults([]);
+    toast.warning(message);
+    return;
+  }
+
+  setIsRunning(true);
+  setOutput('');
+  setTestResults([]);
+
+  try {
+    const res = await runExamTestCases(problem.id, {
+      language,
+      code,
+    });
+
+    const failedCases = res.failedCases || [];
+
+    if (res.status === 'accepted') {
+      setOutput('공개 테스트케이스를 모두 통과했습니다.');
+
+      setTestResults(
+        testCases.map((tc, i) => ({
+          id: i + 1,
+          input: tc.input,
+          expected: tc.expectedOutput || tc.expected,
+          actual: tc.expectedOutput || tc.expected,
+          passed: true,
+          reason: '통과',
+        }))
+      );
+
+      return;
+    }
+
+    setOutput(
+      `테스트케이스 실행 결과: ${res.status}\n` +
+        (res.stderr ? `오류 메시지:\n${res.stderr}` : '')
+    );
+
+    setTestResults(
+      testCases.map((tc, i) => {
+        const failed = failedCases.find(
+          (fc) =>
+            String(fc.input || '').trim() === String(tc.input || '').trim()
+        );
+
+        return {
+          id: i + 1,
+          input: tc.input,
+          expected: tc.expectedOutput || tc.expected,
+          actual: failed ? failed.actual_output || failed.actualOutput || '' : '-',
+          passed: failed ? false : 'unknown',
+          reason: failed ? failed.reason : '채점 중단 이후 미확인',
+        };
+      })
+    );
+  } catch (err) {
+    console.error(err);
+
+    const message =
+      err.response?.data?.message ||
+      '테스트케이스 실행 중 오류가 발생했습니다. 백엔드 서버와 실행 환경을 확인하세요.';
+
+    setOutput(message);
+    toast.error(message);
+  } finally {
+    setIsRunning(false);
+  }
+};
+
+
+// handleSubmit 함수만 아래로 교체
 
 const handleSubmit = async () => {
   if (hasSubmitted || submitLockRef.current) {
@@ -298,8 +379,12 @@ const handleSubmit = async () => {
     return;
   }
 
-  if (!code.trim()) {
-    toast.error('코드를 입력하세요.');
+  if (!hasWrittenSolution(code)) {
+    const message =
+      '제출할 코드가 없습니다. // ---------- 또는 # ---------- 사이에 풀이 코드를 작성해 주세요.';
+
+    setOutput(message);
+    toast.error(message);
     return;
   }
 
@@ -308,70 +393,189 @@ const handleSubmit = async () => {
   setIsSubmitting(true);
   setSubmitResult(null);
 
-    try {
-	const savedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+  try {
+    const savedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
 
-	const studentId = user?.studentId || savedUser.studentId;
-	const studentName =
-  	user?.name ||
-  	user?.studentName ||
-  	savedUser.name ||
-  	savedUser.studentName;
+    const studentId = user?.studentId || savedUser.studentId;
 
-	const res = await submitExam({
-  	examId: problem.id,
-  	studentId,
-  	studentName,
-  	language,
-  	code,
-	});
+    const studentName =
+      user?.name ||
+      user?.studentName ||
+      savedUser.name ||
+      savedUser.studentName;
 
-if (res.duplicated) {
-  setHasSubmitted(true);
-  setOutput(res.message || '이미 제출한 문제입니다.');
-  toast.error(res.message || '이미 제출한 문제입니다.');
-  return;
-}
+    const res = await submitExam({
+      examId: problem.id,
+      studentId,
+      studentName,
+      language,
+      code,
+    });
 
-  const ai = res.ai_feedback || res.aiFeedback || res.submission?.aiFeedback || null;
-
-  setSubmitResult({
-    success: true,
-    message: res.message || '제출 완료',
-    submission: res.submission,
-    aiFeedback: ai,
-  });
-
-      sessionStorage.setItem(
-        `result-${problem.id}`,
-        JSON.stringify({
-          isCorrect: ai?.error_type === 'accepted',
-          errorType: ai?.error_type,
-          summary: ai?.summary,
-          wrongReason: ai?.wrong_reason,
-          solutionDirection: ai?.solution_direction,
-          improvement: ai?.improvement_feedback,
-        })
-      );
-
-      sessionStorage.setItem(`solved-${problem.id}`, 'true');
+    if (res.duplicated) {
       setHasSubmitted(true);
-      setOutput('제출이 완료되었습니다. 아래 AI 피드백을 확인하세요.');
-} catch (err) {
-  console.error(err);
+      setOutput(res.message || '이미 제출한 문제입니다.');
+      toast.error(res.message || '이미 제출한 문제입니다.');
+      return;
+    }
 
-  submitLockRef.current = false;
+    const ai =
+      res.ai_feedback ||
+      res.aiFeedback ||
+      res.submission?.aiFeedback ||
+      null;
 
-  setSubmitResult({
-    success: false,
-    message: err.response?.data?.message || '제출 실패',
-  });
-} finally {
-  setIsRunning(false);
-  setIsSubmitting(false);
-}
-  };
+    setSubmitResult({
+      success: true,
+      message: res.message || '제출 완료',
+      submission: res.submission,
+      aiFeedback: ai,
+    });
 
+    sessionStorage.setItem(
+      `result-${problem.id}`,
+      JSON.stringify({
+        isCorrect: ai?.error_type === 'accepted',
+        errorType: ai?.error_type,
+        summary: ai?.summary,
+        wrongReason: ai?.wrong_reason,
+        solutionDirection: ai?.solution_direction,
+        improvement: ai?.improvement_feedback,
+      })
+    );
+
+    sessionStorage.setItem(`solved-${problem.id}`, 'true');
+
+    setHasSubmitted(true);
+    setOutput('제출이 완료되었습니다. 아래 결과를 확인하세요.');
+
+    // =========================
+    // 전체 제출 기반 랭킹 계산
+    // =========================
+
+    const allSubmissions = await getAllSubmissions();
+
+    const latestSubmissionMap = new Map();
+
+    (allSubmissions || []).forEach((item) => {
+      if (!item.studentId || item.examId == null) return;
+
+      const key = `${item.studentId}__${item.examId}`;
+      const prev = latestSubmissionMap.get(key);
+
+      const currentTime = new Date(item.submitTime || 0).getTime();
+      const prevTime = new Date(prev?.submitTime || 0).getTime();
+
+      if (!prev || currentTime >= prevTime) {
+        latestSubmissionMap.set(key, item);
+      }
+    });
+
+    const totalProblemCount = problems.length;
+
+    const maxScore = problems.reduce(
+      (sum, p) => sum + Number(p.point ?? 0),
+      0
+    );
+
+    const studentMap = new Map();
+
+    latestSubmissionMap.forEach((item) => {
+      const sid = item.studentId;
+
+      if (!studentMap.has(sid)) {
+        studentMap.set(sid, {
+          studentId: sid,
+          studentName: item.studentName || '-',
+          score: 0,
+          correctCount: 0,
+          totalProblems: totalProblemCount,
+        });
+      }
+
+      const row = studentMap.get(sid);
+
+      const isCorrect =
+        item.correct === true ||
+        item.isCorrect === true ||
+        String(item.status || '').toLowerCase().includes('accept');
+
+      if (isCorrect) {
+        row.correctCount += 1;
+
+        const examProblem = problems.find(
+          (p) => String(p.id) === String(item.examId)
+        );
+
+        row.score += Number(examProblem?.point ?? 0);
+      }
+    });
+
+    const sortedRankings = Array.from(studentMap.values()).sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return String(a.studentName).localeCompare(String(b.studentName), 'ko');
+    });
+
+    const rankings = [];
+
+    sortedRankings.forEach((item, index) => {
+      const prevRank = rankings[index - 1];
+
+      const rank =
+        index > 0 && sortedRankings[index - 1].score === item.score
+          ? prevRank.rank
+          : index + 1;
+
+      rankings.push({
+        ...item,
+        rank,
+      });
+    });
+
+    const myRank = rankings.find(
+      (item) => String(item.studentId) === String(studentId)
+    );
+
+    const myScore = myRank?.score ?? 0;
+    const myCorrectCount = myRank?.correctCount ?? 0;
+
+    setSubmissionSummary({
+      rankings,
+      myRank,
+
+      earnedScore: myScore,
+      maxScore,
+
+      correctCount: myCorrectCount,
+      totalProblems: totalProblemCount,
+
+      totalFeedback:
+        ai?.summary ||
+        res.totalFeedback ||
+        '피드백이 없습니다.',
+
+      aiFeedback: ai,
+
+      testResults: res.testResults || [],
+    });
+
+    setShowResultModal(true);
+  } catch (err) {
+    console.error(err);
+
+    submitLockRef.current = false;
+
+    setSubmitResult({
+      success: false,
+      message:
+        err.response?.data?.message ||
+        '제출 실패',
+    });
+  } finally {
+    setIsRunning(false);
+    setIsSubmitting(false);
+  }
+};
   if (!problem) {
     return (
       <div className="problem-not-found">
@@ -389,6 +593,18 @@ if (res.duplicated) {
     보통: { label: '보통', cls: 'tag-medium' },
     어려움: { label: '어려움', cls: 'tag-hard' },
   };
+
+  const closeResultModal = () => {
+  setShowResultModal(false);
+
+  setExamStarted(false);
+
+  clearInterval(timerRef.current);
+
+  exitFullscreen();
+
+  navigate('/');
+};
 
   return (
     <div className={`problem-page ${examStarted ? 'exam-mode' : ''}`}>
@@ -549,6 +765,20 @@ if (res.duplicated) {
                     );
                   })}
                 </div>
+		{problem.constraints && problem.constraints.trim() && (
+  		<div className="constraint-box">
+    		<h4 className="desc-heading">제한사항</h4>
+    		{(problem.constraints || '').split('\n').map((line, i) => {
+      		if (line.trim() === '') return <br key={i} />;
+
+      		return (
+        		<p key={i} className="desc-p">
+          		{line}
+        		</p>
+      		);
+    		})}
+  		</div>
+		)}
               </div>
             )}
 
@@ -578,18 +808,20 @@ if (res.duplicated) {
                                   ? 'passed'
                                   : testResults[i].passed === false
                                   ? 'failed'
-                                  : testResults[i].passed === 'preview'
-                                  ? 'passed'
-                                  : 'pending'
+				  : testResults[i].passed === 'preview'
+				  ? 'preview'
+				  : 'pending'
                               }`}
                             >
                               {testResults[i].passed === true
                                 ? '✓ 통과'
                                 : testResults[i].passed === false
                                 ? '✗ 실패'
-                                : testResults[i].passed === 'preview'
-                                ? '✓ 완료'
-                                : '대기'}
+				: testResults[i].passed === 'preview'
+				? '서버 채점 전'
+				: testResults[i].passed === 'unknown'
+				? '미확인'
+				: '대기'}
                             </span>
                           )}
                         </div>
@@ -616,6 +848,15 @@ if (res.duplicated) {
                             <span className="tc-label">실제값</span>
                             <code className={`tc-value ${testResults[i].passed === false ? 'tc-error' : ''}`}>
                               {testResults[i].actual}
+                            </code>
+                          </div>
+                        )}
+
+                        {testResults[i]?.reason && (
+                          <div className="testcase-row">
+                            <span className="tc-label">설명</span>
+                            <code className={`tc-value ${testResults[i].passed === false ? 'tc-error' : ''}`}>
+                              {testResults[i].reason}
                             </code>
                           </div>
                         )}
@@ -744,13 +985,156 @@ if (res.duplicated) {
 <button
   className="btn-submit"
   onClick={handleSubmit}
-  disabled={isRunning || isSubmitting || !examStarted || !code.trim() || hasSubmitted}
+  disabled={isRunning || isSubmitting || !examStarted || !hasWrittenSolution(code) || hasSubmitted}
 >
   {hasSubmitted ? '제출 완료' : '제출'}
 </button>
           </div>
         </div>
       </div>
+
+      {showResultModal && submissionSummary && (
+  <div className="submit-result-overlay">
+    <div className={`submit-result-modal ${theme}`}>
+
+      <div className="submit-result-header">
+        <h2>제출 결과</h2>
+
+        <button
+          className="submit-result-close"
+          onClick={closeResultModal}
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="submit-result-top-grid">
+
+        <div className="submit-result-card">
+          <span>내 점수</span>
+          <strong>
+            {submissionSummary.earnedScore}
+            /
+            {submissionSummary.maxScore}
+          </strong>
+        </div>
+
+        <div className="submit-result-card">
+          <span>정답 수</span>
+
+          <strong>
+            {submissionSummary.correctCount}
+            /
+            {submissionSummary.totalProblems}
+          </strong>
+        </div>
+
+        <div className="submit-result-card">
+          <span>내 순위</span>
+
+          <strong>
+            {submissionSummary.myRank?.rank || '-'}등
+          </strong>
+        </div>
+
+      </div>
+
+      <div className="submit-feedback-box">
+        <h3>전체 피드백</h3>
+
+        <p>
+          {submissionSummary.totalFeedback}
+        </p>
+      </div>
+
+      <div className="submit-ranking-section">
+
+        <h3>점수 랭킹</h3>
+
+        <table className="submit-ranking-table">
+
+          <thead>
+            <tr>
+              <th>순위</th>
+              <th>학번</th>
+              <th>점수</th>
+              <th>정답</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            {submissionSummary.rankings.map((item) => (
+              <tr
+                key={item.studentId}
+                className={
+                  String(item.studentId) ===
+                  String(user?.studentId)
+                    ? 'my-ranking-row'
+                    : ''
+                }
+              >
+                <td>{item.rank}</td>
+
+                <td>{item.studentId}</td>
+
+                <td>{item.score}</td>
+
+                <td>
+                  {item.correctCount}
+                  /
+                  {item.totalProblems}
+                </td>
+              </tr>
+            ))}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+      {submissionSummary.aiFeedback && (
+        <div className="ai-feedback-box modal-feedback">
+
+          <h3>AI 상세 피드백</h3>
+
+          <p>
+            <strong>오류 유형:</strong>
+            {' '}
+            {submissionSummary.aiFeedback.error_type}
+          </p>
+
+          <p>
+            <strong>요약:</strong>
+            {' '}
+            {submissionSummary.aiFeedback.summary}
+          </p>
+
+          <p>
+            <strong>오류 원인:</strong>
+            {' '}
+            {submissionSummary.aiFeedback.wrong_reason}
+          </p>
+
+          <p>
+            <strong>해결 방향:</strong>
+            {' '}
+            {submissionSummary.aiFeedback.solution_direction}
+          </p>
+
+          <p>
+            <strong>개선 피드백:</strong>
+            {' '}
+            {submissionSummary.aiFeedback.improvement_feedback}
+          </p>
+
+        </div>
+      )}
+
+    </div>
+  </div>
+)}
     </div>
   );
 }

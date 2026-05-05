@@ -4,10 +4,11 @@ import java.util.List;
 
 public class AiProblemDraftResponse {
 
-    private String title;
-    private String description;
-    private String difficulty;
-    private List<AiProblemDraftTestCase> testCases;
+private String title;
+private String description;
+private String constraints;
+private String difficulty;
+private List<AiProblemDraftTestCase> testCases;
 
     public String getTitle() {
         return title;
@@ -40,4 +41,12 @@ public class AiProblemDraftResponse {
     public void setTestCases(List<AiProblemDraftTestCase> testCases) {
         this.testCases = testCases;
     }
+
+public String getConstraints() {
+    return constraints;
+}
+
+public void setConstraints(String constraints) {
+    this.constraints = constraints;
+}
 }

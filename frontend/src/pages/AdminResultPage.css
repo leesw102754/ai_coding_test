@@ -55,12 +55,20 @@
 }
 
 .chart-card {
-  padding: 16px;
+  padding: 20px;
+  min-height: 350px;
+  overflow: visible;
 }
 
 .chart-card h3 {
   margin-bottom: 12px;
   color: var(--text-primary);
+}
+
+.time-chart-wrapper {
+  max-width: 560px;
+  height: 260px;
+  margin: 0 auto;
 }
 
 .admin-result-main {

@@ -64,3 +64,7 @@ export const getSubmissionsByStudentId = async (studentId) => {
   return res.data;
 };
 
+export const runExamTestCases = async (examId, data) => {
+  const res = await API.post(`/exams/${examId}/run-tests`, data);
+  return res.data;
+};

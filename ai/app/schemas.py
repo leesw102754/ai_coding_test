@@ -43,6 +43,7 @@ class JudgeResult(BaseModel):
 class AnalyzeCodeRequest(BaseModel):
     problem_title: str
     problem_description: str
+    problem_constraints: str = ""
     language: str
     student_code: str
     judge_result: JudgeResult
@@ -83,5 +84,6 @@ class GenerateProblemDraftRequest(BaseModel):
 class GenerateProblemDraftResponse(BaseModel):
     title: str
     description: str
+    constraints: str = ""
     difficulty: str = "easy"
     testCases: List[ProblemDraftTestCase]

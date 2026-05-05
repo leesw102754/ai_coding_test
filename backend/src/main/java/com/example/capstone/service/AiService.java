@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import com.example.capstone.dto.AiRecommendedTestCase;
 import com.example.capstone.dto.AiTestCaseRecommendRequest;
 import com.example.capstone.dto.AiTestCaseRecommendResponse;
 import com.example.capstone.dto.AiProblemDraftRequest;
@@ -62,10 +61,11 @@ public class AiService {
         List<TestCase> testCases = testCaseRepository.findByExamId(submission.getExamId());
 
         AiAnalyzeRequest request = new AiAnalyzeRequest();
-        request.setProblemTitle(exam.getTitle());
-        request.setProblemDescription(exam.getDescription());
-        request.setLanguage(submission.getLanguage());
-        request.setStudentCode(submission.getCode());
+	request.setProblemTitle(exam.getTitle());
+	request.setProblemDescription(exam.getDescription());
+	request.setProblemConstraints(exam.getConstraints());
+	request.setLanguage(submission.getLanguage());
+	request.setStudentCode(submission.getCode());
 
         JudgeResult judgeResult;
         String language = submission.getLanguage();
@@ -124,50 +124,77 @@ public class AiService {
         return response.getBody();
     }
 
-public AiTestCaseRecommendResponse recommendTestCases(AiTestCaseRecommendRequest request) {
-    String aiUrl = "http://127.0.0.1:8000/generate-testcases";
+    public JudgeResult judgeOnly(Long examId, String language, String code) {
+        List<TestCase> testCases = testCaseRepository.findByExamId(examId);
 
-    HttpHeaders headers = new HttpHeaders();
-    headers.setContentType(MediaType.APPLICATION_JSON);
-    headers.set("x-api-key", aiInternalKey);
+        if ("python".equalsIgnoreCase(language)) {
+            return pythonJudgeService.judge(code, testCases);
+        } else if ("c".equalsIgnoreCase(language)) {
+            return cJudgeService.judge(code, testCases);
+        } else if ("cpp".equalsIgnoreCase(language) || "c++".equalsIgnoreCase(language)) {
+            return cppJudgeService.judge(code, testCases);
+        } else if ("java".equalsIgnoreCase(language)) {
+            return javaJudgeService.judge(code, testCases);
+        } else if ("javascript".equalsIgnoreCase(language) || "js".equalsIgnoreCase(language)) {
+            return javaScriptJudgeService.judge(code, testCases);
+        }
 
-    HttpEntity<AiTestCaseRecommendRequest> entity = new HttpEntity<>(request, headers);
+        JudgeResult result = new JudgeResult();
+        result.setStatus("runtime_error");
+        result.setErrorTypeHint("runtime_error");
+        result.setStdout("");
+        result.setStderr("지원하지 않는 언어입니다.");
+        result.setCompileOutput("");
+        result.setExecutionTimeMs(0);
+        result.setMemoryKb(0);
+        result.setFailedCases(List.of());
 
-    ResponseEntity<AiTestCaseRecommendResponse> response = restTemplate.exchange(
-            aiUrl,
-            HttpMethod.POST,
-            entity,
-            AiTestCaseRecommendResponse.class
-    );
-
-    if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
-        throw new RuntimeException("AI 테스트케이스 추천 실패");
+        return result;
     }
 
-    return response.getBody();
-}
+    public AiTestCaseRecommendResponse recommendTestCases(AiTestCaseRecommendRequest request) {
+        String aiUrl = "http://127.0.0.1:8000/generate-testcases";
 
-public AiProblemDraftResponse generateProblemDraft(AiProblemDraftRequest request) {
-    String aiUrl = "http://127.0.0.1:8000/generate-problem-draft";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("x-api-key", aiInternalKey);
 
-    HttpHeaders headers = new HttpHeaders();
-    headers.setContentType(MediaType.APPLICATION_JSON);
-    headers.set("x-api-key", aiInternalKey);
+        HttpEntity<AiTestCaseRecommendRequest> entity = new HttpEntity<>(request, headers);
 
-    HttpEntity<AiProblemDraftRequest> entity = new HttpEntity<>(request, headers);
+        ResponseEntity<AiTestCaseRecommendResponse> response = restTemplate.exchange(
+                aiUrl,
+                HttpMethod.POST,
+                entity,
+                AiTestCaseRecommendResponse.class
+        );
 
-    ResponseEntity<AiProblemDraftResponse> response = restTemplate.exchange(
-            aiUrl,
-            HttpMethod.POST,
-            entity,
-            AiProblemDraftResponse.class
-    );
+        if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+            throw new RuntimeException("AI 테스트케이스 추천 실패");
+        }
 
-    if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
-        throw new RuntimeException("AI 문제 초안 생성 실패");
+        return response.getBody();
     }
 
-    return response.getBody();
-}
+    public AiProblemDraftResponse generateProblemDraft(AiProblemDraftRequest request) {
+        String aiUrl = "http://127.0.0.1:8000/generate-problem-draft";
 
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("x-api-key", aiInternalKey);
+
+        HttpEntity<AiProblemDraftRequest> entity = new HttpEntity<>(request, headers);
+
+        ResponseEntity<AiProblemDraftResponse> response = restTemplate.exchange(
+                aiUrl,
+                HttpMethod.POST,
+                entity,
+                AiProblemDraftResponse.class
+        );
+
+        if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+            throw new RuntimeException("AI 문제 초안 생성 실패");
+        }
+
+        return response.getBody();
+    }
 }

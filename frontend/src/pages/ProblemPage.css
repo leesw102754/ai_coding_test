@@ -343,6 +343,11 @@
   color: var(--text-muted);
 }
 
+.testcase-result.preview {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--accent-blue);
+}
+
 .testcase-row {
   display: flex;
   align-items: flex-start;
@@ -744,3 +749,156 @@
   margin-bottom: 10px;
 }
 
+.submit-result-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  z-index: 99999;
+}
+
+.submit-result-modal {
+  width: 92%;
+  max-width: 1100px;
+
+  max-height: 90vh;
+  overflow-y: auto;
+
+  background: #111827;
+
+  border-radius: 20px;
+
+  padding: 28px;
+
+  color: white;
+}
+
+.submit-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  margin-bottom: 24px;
+}
+
+.submit-result-close {
+  border: none;
+  background: transparent;
+
+  color: white;
+
+  font-size: 26px;
+
+  cursor: pointer;
+}
+
+.submit-result-top-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(auto-fit, minmax(220px, 1fr));
+
+  gap: 16px;
+
+  margin-bottom: 24px;
+}
+
+.submit-result-card {
+  background: #1f2937;
+
+  border-radius: 16px;
+
+  padding: 20px;
+}
+
+.submit-result-card span {
+  display: block;
+
+  color: #9ca3af;
+
+  margin-bottom: 10px;
+}
+
+.submit-result-card strong {
+  font-size: 28px;
+}
+
+.submit-feedback-box {
+  background: #1f2937;
+
+  padding: 20px;
+
+  border-radius: 16px;
+
+  margin-bottom: 24px;
+}
+
+.submit-ranking-table {
+  width: 100%;
+
+  border-collapse: collapse;
+
+  margin-top: 14px;
+}
+
+.submit-ranking-table th,
+.submit-ranking-table td {
+  padding: 14px;
+
+  text-align: center;
+
+  border-bottom:
+    1px solid rgba(255,255,255,0.1);
+}
+
+.my-ranking-row {
+  background:
+    rgba(59,130,246,0.3);
+}
+
+.modal-feedback {
+  margin-top: 28px;
+}
+
+/* =========================
+   Result Modal Theme
+========================= */
+
+/* Light Mode */
+.submit-result-modal.light {
+  background: #ffffff;
+  color: #111827;
+}
+
+.submit-result-modal.light .submit-result-close {
+  color: #111827;
+}
+
+.submit-result-modal.light .submit-result-card,
+.submit-result-modal.light .submit-feedback-box,
+.submit-result-modal.light .modal-feedback {
+  background: #f3f4f6;
+}
+
+.submit-result-modal.light .submit-result-card span {
+  color: #6b7280;
+}
+
+.submit-result-modal.light .submit-ranking-table th,
+.submit-result-modal.light .submit-ranking-table td {
+  border-bottom: 1px solid #d1d5db;
+}
+
+/* Dark Mode */
+.submit-result-modal.dark {
+  background: #111827;
+  color: white;
+}
+
+.submit-result-modal.dark .submit-result-close {
+  color: white;
+}

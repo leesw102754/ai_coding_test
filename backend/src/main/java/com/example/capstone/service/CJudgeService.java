@@ -10,10 +10,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class CJudgeService {
+
+    private static final long TIME_LIMIT_SECONDS = 3;
 
     public JudgeResult judge(String code, List<TestCase> testCases) {
         JudgeResult result = new JudgeResult();
@@ -24,31 +28,67 @@ public class CJudgeService {
         List<FailedCase> failedCases = new ArrayList<>();
 
         Path tempDir = null;
-        Path sourceFile = null;
-        Path exeFile = null;
 
         try {
             tempDir = Files.createTempDirectory("c_submission_");
-            sourceFile = tempDir.resolve("Main.c");
 
-            boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
-            exeFile = isWindows ? tempDir.resolve("Main.exe") : tempDir.resolve("Main");
+            Path sourceFile = tempDir.resolve("Main.c");
+            Path exeFile = isWindows()
+                    ? tempDir.resolve("Main.exe")
+                    : tempDir.resolve("Main");
 
             Files.writeString(sourceFile, code, StandardCharsets.UTF_8);
 
             ProcessBuilder compilePb = new ProcessBuilder(
                     "gcc",
-                    sourceFile.toString(),
+                    sourceFile.toAbsolutePath().toString(),
                     "-O2",
+                    "-std=c11",
                     "-o",
-                    exeFile.toString()
+                    exeFile.toAbsolutePath().toString()
             );
 
-            Process compileProcess = compilePb.start();
-            String compileStdout = new String(compileProcess.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            String compileStderr = new String(compileProcess.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
-            int compileExitCode = compileProcess.waitFor();
+            compilePb.directory(tempDir.toFile());
 
+            Process compileProcess = compilePb.start();
+
+            String compileStdout = new String(
+                    compileProcess.getInputStream().readAllBytes(),
+                    StandardCharsets.UTF_8
+            );
+
+            String compileStderr = new String(
+                    compileProcess.getErrorStream().readAllBytes(),
+                    StandardCharsets.UTF_8
+            );
+
+            boolean compileFinished = compileProcess.waitFor(
+                    TIME_LIMIT_SECONDS,
+                    TimeUnit.SECONDS
+            );
+
+            if (!compileFinished) {
+                compileProcess.destroyForcibly();
+
+                result.setStatus("compile_error");
+                result.setErrorTypeHint("compile_error");
+                result.setStdout("");
+                result.setStderr("C 컴파일 시간이 초과되었습니다.");
+                result.setCompileOutput("C 컴파일 시간이 초과되었습니다.");
+
+                FailedCase failedCase = new FailedCase();
+                failedCase.setInput("");
+                failedCase.setExpectedOutput("");
+                failedCase.setActualOutput("");
+                failedCase.setReason("C 컴파일 시간 초과");
+
+                failedCases.add(failedCase);
+                result.setFailedCases(failedCases);
+
+                return result;
+            }
+
+            int compileExitCode = compileProcess.exitValue();
             result.setCompileOutput(compileStdout + compileStderr);
 
             if (compileExitCode != 0) {
@@ -66,26 +106,71 @@ public class CJudgeService {
                 failedCases.add(failedCase);
                 result.setFailedCases(failedCases);
 
-                cleanup(tempDir);
                 return result;
             }
 
             for (TestCase tc : testCases) {
-                ProcessBuilder runPb = new ProcessBuilder(exeFile.toString());
+                ProcessBuilder runPb = new ProcessBuilder(
+                        exeFile.toAbsolutePath().toString()
+                );
+
+                runPb.directory(tempDir.toFile());
+
+                long start = System.currentTimeMillis();
                 Process process = runPb.start();
 
+                String input = tc.getInput() == null ? "" : tc.getInput();
+
+                if (!input.endsWith("\n")) {
+                    input += "\n";
+                }
+
                 try (OutputStream os = process.getOutputStream()) {
-                    os.write((tc.getInput() == null ? "" : tc.getInput()).getBytes(StandardCharsets.UTF_8));
+                    os.write(input.getBytes(StandardCharsets.UTF_8));
                     os.flush();
                 }
 
-                String stdout = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+                boolean finished = process.waitFor(
+                        TIME_LIMIT_SECONDS,
+                        TimeUnit.SECONDS
+                );
 
-                int exitCode = process.waitFor();
+                if (!finished) {
+                    process.destroyForcibly();
+
+                    FailedCase failedCase = new FailedCase();
+                    failedCase.setInput(tc.getInput());
+                    failedCase.setExpectedOutput(tc.getExpectedOutput());
+                    failedCase.setActualOutput("");
+                    failedCase.setReason("C 실행 시간 초과");
+
+                    result.setStatus("runtime_error");
+                    result.setErrorTypeHint("runtime_error");
+                    result.setStdout("");
+                    result.setStderr("C 실행 시간이 초과되었습니다.");
+                    result.setExecutionTimeMs((int) (System.currentTimeMillis() - start));
+                    result.setFailedCases(List.of(failedCase));
+
+                    return result;
+                }
+
+                long elapsed = System.currentTimeMillis() - start;
+
+                String stdout = new String(
+                        process.getInputStream().readAllBytes(),
+                        StandardCharsets.UTF_8
+                );
+
+                String stderr = new String(
+                        process.getErrorStream().readAllBytes(),
+                        StandardCharsets.UTF_8
+                );
+
+                int exitCode = process.exitValue();
 
                 result.setStdout(stdout);
                 result.setStderr(stderr);
+                result.setExecutionTimeMs((int) elapsed);
 
                 FailedCase failedCase = new FailedCase();
                 failedCase.setInput(tc.getInput());
@@ -95,12 +180,11 @@ public class CJudgeService {
                 if (exitCode != 0) {
                     result.setStatus("runtime_error");
                     result.setErrorTypeHint("runtime_error");
-                    failedCase.setReason("실행 중 오류 발생");
+                    failedCase.setReason("실행 중 오류 발생: " + normalize(stderr));
 
                     failedCases.add(failedCase);
                     result.setFailedCases(failedCases);
 
-                    cleanup(tempDir);
                     return result;
                 }
 
@@ -115,12 +199,9 @@ public class CJudgeService {
                     failedCases.add(failedCase);
                     result.setFailedCases(failedCases);
 
-                    cleanup(tempDir);
                     return result;
                 }
             }
-
-            cleanup(tempDir);
 
             result.setStatus("accepted");
             result.setErrorTypeHint(null);
@@ -132,7 +213,7 @@ public class CJudgeService {
             failedCase.setInput("");
             failedCase.setExpectedOutput("");
             failedCase.setActualOutput("");
-            failedCase.setReason("C 실행 자체 실패");
+            failedCase.setReason("C 실행 자체 실패: " + e.getMessage());
 
             result.setStatus("runtime_error");
             result.setErrorTypeHint("runtime_error");
@@ -140,9 +221,16 @@ public class CJudgeService {
             result.setStderr(e.getMessage());
             result.setFailedCases(List.of(failedCase));
 
-            cleanup(tempDir);
             return result;
+        } finally {
+            cleanup(tempDir);
         }
+    }
+
+    private boolean isWindows() {
+        return System.getProperty("os.name")
+                .toLowerCase()
+                .contains("win");
     }
 
     private String normalize(String text) {
@@ -154,7 +242,7 @@ public class CJudgeService {
 
         try {
             Files.walk(tempDir)
-                    .sorted((a, b) -> b.compareTo(a))
+                    .sorted(Comparator.reverseOrder())
                     .forEach(path -> {
                         try {
                             Files.deleteIfExists(path);

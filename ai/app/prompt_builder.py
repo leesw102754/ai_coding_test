@@ -81,6 +81,7 @@ def build_analysis_prompt(data: AnalyzeCodeRequest, error_type: str) -> str:
 역할:
 - 학생 제출 코드를 분석합니다.
 - judge_result와 실패 케이스를 가장 중요한 근거로 사용합니다.
+- 문제 설명과 제한사항을 함께 참고합니다.
 - 문제 설명보다 테스트 케이스 결과를 우선적으로 신뢰합니다.
 - wrong_reason은 반드시 실패 케이스의 입력값, 기대 출력, 실제 출력 차이를 기반으로 설명하세요.
 - 실패 케이스가 있으면 wrong_reason에 입력값/기대 출력/실제 출력 중 최소 2개 이상을 자연스럽게 언급하세요.
@@ -114,6 +115,9 @@ def build_analysis_prompt(data: AnalyzeCodeRequest, error_type: str) -> str:
 
 문제 설명:
 {_safe_text(data.problem_description, 1200)}
+
+제한사항:
+{_safe_text(data.problem_constraints, 800) or "제한사항 정보 없음"}
 
 언어:
 {_safe_text(data.language, 100)}
@@ -212,7 +216,7 @@ def build_problem_draft_prompt(data: GenerateProblemDraftRequest) -> str:
 
 역할:
 - 관리자의 한 줄 요청을 바탕으로 코딩 문제 초안을 생성합니다.
-- 반드시 제목, 문제 설명, 난이도, 테스트케이스를 함께 생성합니다.
+- 반드시 제목, 문제 설명, 제한사항, 난이도, 테스트케이스를 함께 생성합니다.
 - 난이도는 easy, medium, hard 중 하나만 사용합니다.
 - 테스트케이스는 3~5개 생성합니다.
 - 테스트케이스는 input, expectedOutput, description을 포함해야 합니다.
@@ -221,10 +225,9 @@ def build_problem_draft_prompt(data: GenerateProblemDraftRequest) -> str:
 
 중요 입력 규칙:
 - 문제 설명은 실제 시험 문제처럼 작성합니다.
-- description 안에 가능하면 아래 내용을 자연스럽게 포함합니다:
-  - 입력 형식
-  - 출력 형식
-  - 제한사항
+- description에는 문제 설명, 입력 형식, 출력 형식을 포함합니다.
+- constraints에는 입력 범위, 출력 조건, 시간/메모리 조건, 주의사항을 분리해서 작성합니다.
+- 제한사항은 description에 섞지 말고 constraints 필드에 작성합니다.
 - 테스트케이스 input은 반드시 표준 입력 형태로 작성합니다.
 - [1,2,3] 같은 배열 문자열 표기는 사용하지 않습니다.
 - 공백/줄바꿈 기반 입력을 사용합니다.
@@ -244,5 +247,6 @@ def build_problem_draft_prompt(data: GenerateProblemDraftRequest) -> str:
 6. description에 숫자를 쓸 때는 expectedOutput의 값과 반드시 일치해야 합니다.
 7. 정답 코드는 절대 작성하지 않습니다.
 8. 출력은 반드시 JSON만 반환합니다.
+9. constraints는 학생 문제 화면의 제한사항 영역에 그대로 표시될 수 있게 작성합니다.
 """
     return prompt.strip()

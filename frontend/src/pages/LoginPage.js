@@ -86,12 +86,7 @@ const handleCheckUsername = async () => {
     setUsernameChecked(result.available);
     setUsernameCheckMessage(result.message);
 
-  if (result.available) {
     toast.success(result.message);
-  } else {
-    toast.error(result.message);
-  }
-
   } catch (err) {
     setUsernameChecked(false);
     setUsernameCheckMessage('');

@@ -9,6 +9,9 @@ public class AiAnalyzeRequest {
     @JsonProperty("problem_description")
     private String problemDescription;
 
+   @JsonProperty("problem_constraints")
+   private String problemConstraints;
+
     @JsonProperty("language")
     private String language;
 
@@ -33,6 +36,14 @@ public class AiAnalyzeRequest {
     public void setProblemDescription(String problemDescription) {
         this.problemDescription = problemDescription;
     }
+
+   public String getProblemConstraints() {
+       return problemConstraints;
+   }
+
+   public void setProblemConstraints(String problemConstraints) {
+       this.problemConstraints = problemConstraints;
+   }
 
     public String getLanguage() {
         return language;

@@ -11,6 +11,7 @@ import {
   YAxis,
   CartesianGrid,
   Legend,
+  LabelList,
 } from 'recharts';
 import { getAllSubmissions, getSubmissionDetail, getProblems } from '../api/problemApi';
 import './AdminResultPage.css';
@@ -234,22 +235,31 @@ const studentScoreData = useMemo(() => {
       value,
     }));
 
-    const hourlyCount = submissions.reduce((acc, cur) => {
+    const timeBucketCount = submissions.reduce((acc, cur) => {
       if (!cur.submitTime) return acc;
+
       const date = new Date(cur.submitTime);
       if (Number.isNaN(date.getTime())) return acc;
 
-      const hour = `${String(date.getHours()).padStart(2, '0')}시`;
-      acc[hour] = (acc[hour] || 0) + 1;
+      const hour = String(date.getHours()).padStart(2, '0');
+      const startMinute = Math.floor(date.getMinutes() / 10) * 10;
+      const endMinute = startMinute + 9;
+
+      const start = String(startMinute).padStart(2, '0');
+      const end = String(endMinute).padStart(2, '0');
+
+      const bucket = `${hour}:${start}~${hour}:${end}`;
+
+      acc[bucket] = (acc[bucket] || 0) + 1;
       return acc;
     }, {});
 
-const hourlyChartData = Object.keys(hourlyCount)
-  .sort()
-  .map((hour) => ({
-    hour,
-    count: hourlyCount[hour],
-  }));
+    const hourlyChartData = Object.keys(timeBucketCount)
+      .sort()
+      .map((hour) => ({
+        hour,
+        count: timeBucketCount[hour],
+      }));
 
     return {
       totalSubmissions: submissions.length,
@@ -278,7 +288,7 @@ const feedbackStatusData = useMemo(() => {
   return [
     { name: '정답', value: counter.accepted },
     { name: '오답/기타', value: counter.notAccepted },
-  ];
+  ].filter((item) => item.value > 0);
 }, [submissions]);
 
   const problemAccuracyData = useMemo(() => {
@@ -296,10 +306,10 @@ const feedbackStatusData = useMemo(() => {
 
       acc[examId].total += 1;
 
-      const isCorrect = cur.correct ?? cur.isCorrect ?? false;
-      if (isCorrect) {
-        acc[examId].correct += 1;
-      }
+const status = normalizeSubmissionStatus(cur);
+if (status === 'accepted') {
+  acc[examId].correct += 1;
+}
 
       return acc;
     }, {});
@@ -486,15 +496,15 @@ const selectedPointInfo = selectedSubmission
       <div className="chart-grid">
         <div className="chart-card">
           <h3>언어별 제출 비율</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie
-                data={stats.languageChartData}
-                dataKey="value"
-                nameKey="name"
-                outerRadius={90}
-                label
-              >
+		<ResponsiveContainer width="100%" height={300}>
+  		<PieChart margin={{ top: 24, right: 32, bottom: 24, left: 32 }}>
+    		<Pie
+      			data={stats.languageChartData}
+      			dataKey="value"
+      			nameKey="name"
+      			outerRadius={78}
+      			label
+    		>
 		{stats.languageChartData.map((entry, index) => {
   		const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4'];
  		 return <Cell key={index} fill={colors[index % colors.length]} />;
@@ -508,8 +518,13 @@ const selectedPointInfo = selectedSubmission
 
         <div className="chart-card">
           <h3>시간대별 제출 수</h3>
-          <ResponsiveContainer width="100%" height={260}>
-<BarChart data={stats.hourlyChartData} barCategoryGap="45%">
+<div className="time-chart-wrapper">
+  <ResponsiveContainer width="100%" height={260}>
+    <BarChart
+      data={stats.hourlyChartData}
+      barCategoryGap="20%"
+      margin={{ top: 12, right: 20, bottom: 12, left: 0 }}
+    >
   <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
   <XAxis dataKey="hour" />
   <YAxis allowDecimals={false} />
@@ -524,21 +539,22 @@ const selectedPointInfo = selectedSubmission
     barSize={40}
     radius={[6, 6, 0, 0]}
   />
-</BarChart>
-          </ResponsiveContainer>
+    </BarChart>
+  </ResponsiveContainer>
+</div>
         </div>
 
         <div className="chart-card">
           <h3>제출 상태 비율</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie
-                data={feedbackStatusData}
-                dataKey="value"
-                nameKey="name"
-                outerRadius={90}
-                label
-              >
+		<ResponsiveContainer width="100%" height={300}>
+  		<PieChart margin={{ top: 24, right: 32, bottom: 24, left: 32 }}>
+    		<Pie
+      			data={feedbackStatusData}
+      			dataKey="value"
+      			nameKey="name"
+      			outerRadius={78}
+      			label
+    		>
 		{feedbackStatusData.map((entry, index) => (
   		<Cell key={index} fill={index === 0 ? '#22c55e' : '#ef4444'} />
 		))}
@@ -563,13 +579,19 @@ const selectedPointInfo = selectedSubmission
                 }}
               />
               <Legend />
-<Bar
-  dataKey="rate"
-  name="정답률"
-  fill="#22c55e"
-  barSize={40}
-  radius={[6, 6, 0, 0]}
->
+		<Bar
+  		dataKey="rate"
+  		name="정답률"
+  		fill="#22c55e"
+  		barSize={40}
+  		minPointSize={3}
+  		radius={[6, 6, 0, 0]}
+		>
+  		<LabelList
+    		dataKey="rate"
+    		position="top"
+  		  formatter={(value) => `${value}%`}
+  		/>
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -610,7 +632,7 @@ const selectedPointInfo = selectedSubmission
               <table className="submission-table">
                 <thead>
                   <tr>
-                    <th>ID</th>
+                    <th>번호</th>
                     <th>문제</th>
                     <th>학번</th>
                     <th>이름</th>
@@ -620,7 +642,7 @@ const selectedPointInfo = selectedSubmission
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedSubmissions.map((item) => {
+                  {paginatedSubmissions.map((item, index) => {
                     const isCorrect = item.correct ?? item.isCorrect ?? false;
 
                     return (
@@ -629,7 +651,7 @@ const selectedPointInfo = selectedSubmission
                         className={selectedId === item.id ? 'active' : ''}
                         onClick={() => handleSelectSubmission(item.id)}
                       >
-                        <td>{item.id}</td>
+                        <td>{(currentPage - 1) * pageSize + index + 1}</td>
                         <td>{item.examId}</td>
                         <td>{item.studentId}</td>
                         <td>{item.studentName}</td>

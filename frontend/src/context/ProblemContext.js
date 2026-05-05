@@ -114,6 +114,8 @@ const transformProblem = (p, index = 0) => ({
       expected: '서술형 답변',
     },
   ],
+
+ constraints: p.constraints || '',
 });
 
   const fetchProblems = async () => {

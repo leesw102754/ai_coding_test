@@ -79,6 +79,7 @@ PROBLEM_DRAFT_JSON_SCHEMA = {
         "properties": {
             "title": {"type": "string"},
             "description": {"type": "string"},
+            "constraints": {"type": "string"},
             "difficulty": {
                 "type": "string",
                 "enum": ["easy", "medium", "hard"]
@@ -97,7 +98,7 @@ PROBLEM_DRAFT_JSON_SCHEMA = {
                 }
             }
         },
-        "required": ["title", "description", "difficulty", "testCases"]
+        "required": ["title", "description", "constraints", "difficulty", "testCases"]
     }
 }
 

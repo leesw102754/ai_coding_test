@@ -46,3 +46,9 @@ out/
 ai/.env
 ai/.env
 .env
+.env
+ai/.env
+node_modules/
+target/
+build/
+dist/

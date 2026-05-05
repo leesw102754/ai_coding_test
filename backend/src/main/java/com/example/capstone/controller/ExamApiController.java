@@ -1,5 +1,6 @@
 package com.example.capstone.controller;
 
+import com.example.capstone.dto.JudgeResult;
 import org.springframework.transaction.annotation.Transactional;
 import com.example.capstone.dto.AiAnalyzeResponse;
 import com.example.capstone.dto.AiProblemDraftRequest;
@@ -64,6 +65,10 @@ public class ExamApiController {
             exam.setSource(exam.getSource().trim());
         }
 
+	if (exam.getConstraints() != null) {
+   	 exam.setConstraints(exam.getConstraints().trim());
+	}
+
         return examRepository.save(exam);
     }
 
@@ -98,6 +103,28 @@ public class ExamApiController {
     public List<TestCase> getTestCases(@PathVariable Long id) {
         return testCaseRepository.findByExamId(id);
     }
+
+@PostMapping("/exams/{id}/run-tests")
+public Map<String, Object> runTests(
+        @PathVariable Long id,
+        @RequestBody Map<String, String> request
+) {
+    String language = request.get("language");
+    String code = request.get("code");
+
+    JudgeResult judgeResult = aiService.judgeOnly(id, language, code);
+
+    Map<String, Object> result = new HashMap<>();
+    result.put("message", "테스트케이스 실행 완료");
+    result.put("status", judgeResult.getStatus());
+    result.put("errorTypeHint", judgeResult.getErrorTypeHint());
+    result.put("stdout", judgeResult.getStdout());
+    result.put("stderr", judgeResult.getStderr());
+    result.put("compileOutput", judgeResult.getCompileOutput());
+    result.put("failedCases", judgeResult.getFailedCases());
+
+    return result;
+}
 
     @GetMapping("/exams/{id}")
     public Exam getExamDetail(@PathVariable Long id) {
@@ -134,6 +161,10 @@ public class ExamApiController {
                 exam.setSource("manual");
             }
         }
+
+	if (request.getConstraints() != null) {
+    		exam.setConstraints(request.getConstraints().trim());
+	}
 
         return examRepository.save(exam);
     }
