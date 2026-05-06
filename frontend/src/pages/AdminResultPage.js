@@ -567,26 +567,25 @@ const selectedPointInfo = selectedSubmission
   ? getSubmissionPointInfo(selectedSubmission)
   : null;
 
-  return (
-    <div className="admin-result-page">
-      <div className="admin-result-header">
-        <div>
-          <h1>전체 결과 관리</h1>
-          <p>전체 제출 현황과 상세 피드백을 한눈에 확인할 수 있습니다.</p>
-        </div>
+return (
+  <div className="admin-result-page">
+    <div className="admin-result-header">
+      <div>
+        <h1>전체 결과 관리</h1>
+        <p>전체 제출 현황과 상세 피드백을 한눈에 확인할 수 있습니다.</p>
       </div>
 
-  <button
-    type="button"
-    className="ai-reanalyze-button"
-    onClick={handleReanalyzeAllWithAi}
-    disabled={isReanalyzing || submissions.length === 0}
-  >
-    {isReanalyzing ? 'AI 피드백 생성 중...' : 'AI 피드백 일괄 생성'}
-  </button>
-</div>
+      <button
+        type="button"
+        className="ai-reanalyze-button"
+        onClick={handleReanalyzeAllWithAi}
+        disabled={isReanalyzing || submissions.length === 0}
+      >
+        {isReanalyzing ? 'AI 피드백 생성 중...' : 'AI 피드백 일괄 생성'}
+      </button>
+    </div>
 
-      <div className="summary-grid">
+    <div className="summary-grid">
         <div className="summary-card">
           <span className="summary-label">전체 제출 수</span>
           <strong className="summary-value">{stats.totalSubmissions}</strong>

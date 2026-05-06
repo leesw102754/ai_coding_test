@@ -1,5 +1,7 @@
 package com.example.capstone.service;
 
+import com.example.capstone.dto.AiObjectiveQuestionRequest;
+import com.example.capstone.dto.AiObjectiveQuestionResponse;
 import com.example.capstone.dto.AiAnalyzeRequest;
 import com.example.capstone.dto.AiAnalyzeResponse;
 import com.example.capstone.dto.JudgeResult;
@@ -197,4 +199,27 @@ public class AiService {
 
         return response.getBody();
     }
+
+public AiObjectiveQuestionResponse generateObjectiveQuestion(AiObjectiveQuestionRequest request) {
+    String aiUrl = "http://127.0.0.1:8000/generate-objective-question";
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    headers.set("x-api-key", aiInternalKey);
+
+    HttpEntity<AiObjectiveQuestionRequest> entity = new HttpEntity<>(request, headers);
+
+    ResponseEntity<AiObjectiveQuestionResponse> response = restTemplate.exchange(
+            aiUrl,
+            HttpMethod.POST,
+            entity,
+            AiObjectiveQuestionResponse.class
+    );
+
+    if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+        throw new RuntimeException("AI 객관식 문제 생성 실패");
+    }
+
+    return response.getBody();
+}
 }

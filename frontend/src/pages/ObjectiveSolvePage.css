@@ -1,0 +1,194 @@
+.objective-solve-page {
+  min-height: 100vh;
+  padding: 32px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.objective-solve-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.objective-solve-header {
+  margin-bottom: 24px;
+}
+
+.objective-solve-header h1 {
+  margin-bottom: 8px;
+  font-size: 2rem;
+}
+
+.objective-solve-header p {
+  color: var(--text-secondary);
+}
+
+.objective-solve-control-card,
+.objective-question-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+}
+
+.objective-solve-control-card {
+  margin-bottom: 18px;
+}
+
+.objective-solve-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 14px;
+}
+
+.objective-solve-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.objective-solve-field label {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.objective-solve-field input,
+.objective-solve-field select {
+  height: 46px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 0 14px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.objective-solve-message {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--accent-blue);
+  font-weight: 700;
+}
+
+.objective-solve-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.objective-solve-list h2 {
+  margin: 14px 0 4px;
+}
+
+.objective-solve-empty {
+  padding: 28px;
+  border: 1px dashed var(--border-color);
+  border-radius: 16px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.objective-question-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.objective-question-number {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: var(--accent-blue);
+  font-weight: 800;
+}
+
+.objective-question-top h3 {
+  font-size: 1.3rem;
+}
+
+.objective-question-point {
+  height: fit-content;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.14);
+  color: var(--accent-blue);
+  font-weight: 800;
+}
+
+.objective-question-description {
+  margin-bottom: 18px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.objective-choice-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.objective-choice-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  line-height: 1.5;
+}
+
+.objective-choice-item.selected {
+  border-color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--text-primary);
+}
+
+.objective-choice-item input {
+  margin-top: 4px;
+}
+
+.objective-result-box {
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  line-height: 1.6;
+}
+
+.objective-result-box.correct {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+}
+
+.objective-result-box.wrong {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.objective-submit-btn {
+  min-width: 120px;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent-blue);
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.objective-submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 800px) {
+  .objective-solve-grid,
+  .objective-choice-list {
+    grid-template-columns: 1fr;
+  }
+}

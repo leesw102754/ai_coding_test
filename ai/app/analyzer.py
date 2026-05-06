@@ -7,15 +7,18 @@ from openai import OpenAI
 from app.schemas import (
     AnalyzeCodeRequest,
     AnalyzeCodeResponse,
-    GenerateProblemDraftRequest,
-    GenerateProblemDraftResponse,
     GenerateTestCasesRequest,
     GenerateTestCasesResponse,
+    GenerateProblemDraftRequest,
+    GenerateProblemDraftResponse,
+    GenerateObjectiveQuestionRequest,
+    GenerateObjectiveQuestionResponse,
 )
 from app.prompt_builder import (
     build_analysis_prompt,
-    build_problem_draft_prompt,
     build_testcase_generation_prompt,
+    build_problem_draft_prompt,
+    build_objective_question_prompt,
 )
 
 load_dotenv()
@@ -99,6 +102,49 @@ PROBLEM_DRAFT_JSON_SCHEMA = {
             }
         },
         "required": ["title", "description", "constraints", "difficulty", "testCases"]
+    }
+}
+
+OBJECTIVE_QUESTION_JSON_SCHEMA = {
+    "name": "objective_question_result",
+    "schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "title": {"type": "string"},
+            "description": {"type": "string"},
+            "choice1": {"type": "string"},
+            "choice2": {"type": "string"},
+            "choice3": {"type": "string"},
+            "choice4": {"type": "string"},
+            "correctAnswer": {
+                "type": "integer",
+                "enum": [1, 2, 3, 4]
+            },
+            "explanation": {"type": "string"},
+            "difficulty": {
+                "type": "string",
+                "enum": ["easy", "medium", "hard"]
+            },
+            "point": {"type": "integer"},
+            "source": {
+                "type": "string",
+                "enum": ["ai"]
+            }
+        },
+        "required": [
+            "title",
+            "description",
+            "choice1",
+            "choice2",
+            "choice3",
+            "choice4",
+            "correctAnswer",
+            "explanation",
+            "difficulty",
+            "point",
+            "source"
+        ]
     }
 }
 
@@ -400,6 +446,41 @@ def generate_problem_draft(data: GenerateProblemDraftRequest) -> GenerateProblem
     parsed = json.loads(raw_text)
 
     return GenerateProblemDraftResponse(**parsed)
+
+def generate_objective_question(data: GenerateObjectiveQuestionRequest) -> GenerateObjectiveQuestionResponse:
+    client = get_openai_client()
+
+    if client is None:
+        raise RuntimeError("OPENAI_API_KEY가 설정되지 않았습니다.")
+
+    prompt = build_objective_question_prompt(data)
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[
+            {
+                "role": "system",
+                "content": "당신은 시험용 객관식 문제를 생성하는 AI입니다."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": OBJECTIVE_QUESTION_JSON_SCHEMA["name"],
+                "schema": OBJECTIVE_QUESTION_JSON_SCHEMA["schema"],
+                "strict": True
+            }
+        }
+    )
+
+    raw_text = response.output_text
+    parsed = json.loads(raw_text)
+
+    return GenerateObjectiveQuestionResponse(**parsed)
 
 def generate_testcases(data: GenerateTestCasesRequest) -> GenerateTestCasesResponse:
     client = get_openai_client()

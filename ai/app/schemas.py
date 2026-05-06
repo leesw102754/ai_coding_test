@@ -87,3 +87,23 @@ class GenerateProblemDraftResponse(BaseModel):
     constraints: str = ""
     difficulty: str = "easy"
     testCases: List[ProblemDraftTestCase]
+
+class GenerateObjectiveQuestionRequest(BaseModel):
+    categoryId: Optional[int] = None
+    topic: str
+    difficulty: str = "easy"
+    point: int = 10
+
+
+class GenerateObjectiveQuestionResponse(BaseModel):
+    title: str
+    description: str
+    choice1: str
+    choice2: str
+    choice3: str
+    choice4: str
+    correctAnswer: int
+    explanation: str
+    difficulty: str = "easy"
+    point: int = 10
+    source: str = "ai"

@@ -2,6 +2,7 @@ from app.schemas import (
     AnalyzeCodeRequest,
     GenerateTestCasesRequest,
     GenerateProblemDraftRequest,
+    GenerateObjectiveQuestionRequest,
 )
 
 def _safe_text(value, max_len: int = 1200) -> str:
@@ -259,5 +260,41 @@ def build_problem_draft_prompt(data: GenerateProblemDraftRequest) -> str:
 8. 출력은 반드시 JSON만 반환합니다.
 9. constraints는 학생 문제 화면의 제한사항 영역에 그대로 표시될 수 있게 작성합니다.
 10. description과 constraints의 내용이 서로 중복되지 않게 작성합니다.
+"""
+    return prompt.strip()
+
+def build_objective_question_prompt(data: GenerateObjectiveQuestionRequest) -> str:
+    prompt = f"""
+당신은 웹 기반 시험 시스템의 객관식 문제 생성 AI입니다.
+
+역할:
+- 관리자의 요청을 바탕으로 객관식 문제 1개를 생성합니다.
+- 반드시 문제 제목, 문제 설명, 보기 4개, 정답 번호, 해설, 난이도, 점수를 생성합니다.
+- 정답은 반드시 하나만 존재해야 합니다.
+- 보기는 서로 의미가 겹치지 않아야 합니다.
+- 설명은 반드시 한국어로 작성합니다.
+- 출력은 반드시 JSON만 반환합니다.
+
+입력 정보:
+주제:
+{_safe_text(data.topic, 500)}
+
+난이도:
+{data.difficulty}
+
+점수:
+{data.point}
+
+생성 규칙:
+1. title은 짧고 명확하게 작성합니다.
+2. description은 시험 문제처럼 한 문장 또는 두 문장으로 작성합니다.
+3. choice1~choice4는 모두 서로 다른 선택지여야 합니다.
+4. correctAnswer는 1, 2, 3, 4 중 하나의 정수여야 합니다.
+5. explanation에는 왜 그 보기가 정답인지 간단히 작성합니다.
+6. difficulty는 입력된 난이도를 유지합니다.
+7. point는 입력된 점수를 유지합니다.
+8. source는 "ai"로 작성합니다.
+9. 정답이 2개 이상 될 수 있는 애매한 문제는 만들지 마세요.
+10. 출력은 반드시 JSON 형식만 반환합니다.
 """
     return prompt.strip()

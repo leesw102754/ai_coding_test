@@ -27,6 +27,8 @@ public class Exam {
 
     private String source;
 
+    private Long categoryId;
+
     public Long getId() {
         return id;
     }
@@ -82,4 +84,12 @@ public class Exam {
    public void setConstraints(String constraints) {
        this.constraints = constraints;
    }
+
+public Long getCategoryId() {
+    return categoryId;
+}
+
+public void setCategoryId(Long categoryId) {
+    this.categoryId = categoryId;
+}
 }

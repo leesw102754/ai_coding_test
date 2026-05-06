@@ -16,6 +16,7 @@ import AdminExamManagePage from './pages/AdminExamManagePage';
 import ResultsPage from './pages/ResultsPage';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import ObjectiveSolvePage from './pages/ObjectiveSolvePage';
 
 export default function App() {
   return (
@@ -57,9 +58,10 @@ function AppRoutes() {
     <>
       <Header />
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/problem/:id" element={<ProblemPage />} />
-        <Route path="/results" element={<ResultsPage />} />
+  	<Route path="/" element={<HomePage />} />
+  	<Route path="/problem/:id" element={<ProblemPage />} />
+  	<Route path="/objective-solve" element={<ObjectiveSolvePage />} />
+  	<Route path="/results" element={<ResultsPage />} />
 
         {user.role === 'ADMIN' && (
           <>

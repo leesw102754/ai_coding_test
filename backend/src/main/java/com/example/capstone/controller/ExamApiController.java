@@ -45,6 +45,11 @@ public class ExamApiController {
         return examRepository.findAll();
     }
 
+@GetMapping("/exams/category/{categoryId}")
+public List<Exam> getExamsByCategory(@PathVariable Long categoryId) {
+    return examRepository.findByCategoryId(categoryId);
+}
+
     @PostMapping("/ai/problems/generate")
     public AiProblemDraftResponse generateAiProblem(@RequestBody AiProblemDraftRequest request) {
         return aiService.generateProblemDraft(request);

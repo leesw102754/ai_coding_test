@@ -11,11 +11,14 @@ from app.schemas import (
     GenerateTestCasesResponse,
     GenerateProblemDraftRequest,
     GenerateProblemDraftResponse,
+    GenerateObjectiveQuestionRequest,
+    GenerateObjectiveQuestionResponse,
 )
 from app.analyzer import (
     analyze_code,
     generate_testcases,
     generate_problem_draft,
+    generate_objective_question,
 )
 
 load_dotenv()
@@ -115,4 +118,33 @@ def generate_problem_draft_endpoint(
         raise HTTPException(
             status_code=500,
             detail="문제 초안 생성 중 서버 오류가 발생했습니다."
+        )
+
+@app.post("/generate-objective-question", response_model=GenerateObjectiveQuestionResponse)
+def generate_objective_question_endpoint(
+    request: GenerateObjectiveQuestionRequest,
+    x_api_key: str = Header(default="")
+):
+    expected_key = os.getenv("AI_INTERNAL_KEY")
+
+    if not expected_key:
+        logger.error("AI_INTERNAL_KEY is not set")
+        raise HTTPException(status_code=500, detail="서버 설정이 완료되지 않았습니다.")
+
+    if x_api_key != expected_key:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    try:
+        logger.info(
+            "objective question generation request received | topic=%s | difficulty=%s",
+            request.topic,
+            request.difficulty,
+        )
+        return generate_objective_question(request)
+
+    except Exception:
+        logger.exception("generate-objective-question failed")
+        raise HTTPException(
+            status_code=500,
+            detail="객관식 문제 생성 중 서버 오류가 발생했습니다."
         )

@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   createExam,
   createTestCase,
   recommendAiTestCases,
   generateAiProblemDraft,
+  getCategories,
+  createCategory,
+  deleteCategory,
 } from '../api/problemApi';
 import './AdminCodingPage.css';
 
@@ -16,6 +19,9 @@ const [title, setTitle] = useState('');
 const [description, setDescription] = useState('');
 const [constraints, setConstraints] = useState('');
 const [difficulty, setDifficulty] = useState('easy');
+const [categories, setCategories] = useState([]);
+const [selectedCategoryId, setSelectedCategoryId] = useState('');
+const [newCategoryTitle, setNewCategoryTitle] = useState('');
 
   const [testInput, setTestInput] = useState('');
   const [expectedOutput, setExpectedOutput] = useState('');
@@ -40,6 +46,106 @@ const [difficulty, setDifficulty] = useState('easy');
       return true;
     });
   };
+
+const loadCategories = async (preferredId = '') => {
+  try {
+    const data = await getCategories();
+    const list = data || [];
+
+    setCategories(list);
+
+    if (list.length === 0) {
+      setSelectedCategoryId('');
+      return;
+    }
+
+    const preferredExists = preferredId
+      ? list.some((category) => String(category.id) === String(preferredId))
+      : false;
+
+    if (preferredExists) {
+      setSelectedCategoryId(String(preferredId));
+      return;
+    }
+
+    const currentExists = selectedCategoryId
+      ? list.some((category) => String(category.id) === String(selectedCategoryId))
+      : false;
+
+    if (!currentExists) {
+      setSelectedCategoryId(String(list[0].id));
+    }
+  } catch (err) {
+    console.error('카테고리 조회 실패:', err);
+    setCategories([]);
+    setSelectedCategoryId('');
+  }
+};
+
+useEffect(() => {
+  loadCategories();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+const handleCreateCategory = async () => {
+  if (!newCategoryTitle.trim()) {
+    setMessage('생성할 시험 폴더명을 입력하세요.');
+    return;
+  }
+
+  try {
+    setMessage('');
+
+    const created = await createCategory({
+      title: newCategoryTitle.trim(),
+    });
+
+    setNewCategoryTitle('');
+    await loadCategories(created?.id);
+
+    setMessage('시험 폴더가 생성되었습니다.');
+  } catch (err) {
+    console.error('시험 폴더 생성 실패:', err);
+    setMessage(
+      err.response?.data?.message ||
+        err.response?.data?.detail ||
+        '시험 폴더 생성에 실패했습니다.'
+    );
+  }
+};
+
+const handleDeleteCategory = async () => {
+  if (!selectedCategoryId) {
+    setMessage('삭제할 시험 폴더를 선택하세요.');
+    return;
+  }
+
+  const selectedCategory = categories.find(
+    (category) => String(category.id) === String(selectedCategoryId)
+  );
+
+  const confirmed = window.confirm(
+    `"${selectedCategory?.title || '선택한 폴더'}" 폴더를 삭제하시겠습니까?\n폴더 안의 문제, 테스트케이스, 제출 내역도 함께 삭제될 수 있습니다.`
+  );
+
+  if (!confirmed) return;
+
+  try {
+    setMessage('');
+
+    await deleteCategory(selectedCategoryId);
+    await loadCategories();
+
+    setMessage('시험 폴더가 삭제되었습니다.');
+  } catch (err) {
+    console.error('시험 폴더 삭제 실패:', err);
+    setMessage(
+      err.response?.data?.message ||
+        err.response?.data?.detail ||
+        '시험 폴더 삭제에 실패했습니다.'
+    );
+  }
+};
 
 const handleAiProblemGenerate = async () => {
   if (!problemPrompt.trim()) {
@@ -169,10 +275,16 @@ const handleAddTestCase = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!title.trim() || !description.trim()) {
-      setMessage('제목과 설명을 입력하세요.');
-      return;
-    }
+if (!selectedCategoryId) {
+  setMessage('문제를 등록할 시험 폴더를 먼저 선택하세요.');
+  return;
+}
+
+
+if (!title.trim() || !description.trim()) {
+  setMessage('제목과 설명을 입력하세요.');
+  return;
+}
 
     if (testCases.length === 0) {
       setMessage('최소 1개 이상의 테스트케이스를 추가하세요.');
@@ -191,6 +303,7 @@ try {
   setMessage('');
 
 const createdExam = await createExam({
+  categoryId: Number(selectedCategoryId),
   title: title.trim(),
   description: description.trim(),
   constraints: constraints.trim(),
@@ -243,6 +356,65 @@ setTestCases([]);
         <p className="admincodingpage-subtitle">
           코드 작성형 문제와 테스트케이스를 함께 등록할 수 있습니다.
         </p>
+
+<div className="admincodingpage-category-box">
+  <div className="admincodingpage-form-group">
+    <label className="admincodingpage-label">시험 폴더</label>
+    <div className="admincodingpage-category-row">
+      <select
+        className="admincodingpage-input"
+        value={selectedCategoryId}
+        onChange={(e) => setSelectedCategoryId(e.target.value)}
+      >
+        {categories.length === 0 ? (
+          <option value="">등록된 폴더가 없습니다</option>
+        ) : (
+          categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.title}
+            </option>
+          ))
+        )}
+      </select>
+
+      <button
+        type="button"
+        className="admincodingpage-delete-category-btn"
+        onClick={handleDeleteCategory}
+        disabled={!selectedCategoryId}
+      >
+        폴더 삭제
+      </button>
+    </div>
+  </div>
+
+  <div className="admincodingpage-form-group">
+    <label className="admincodingpage-label">새 시험 폴더 생성</label>
+    <div className="admincodingpage-category-row">
+      <input
+        type="text"
+        className="admincodingpage-input"
+        placeholder="예: 2026년 1학기 중간고사"
+        value={newCategoryTitle}
+        onChange={(e) => setNewCategoryTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handleCreateCategory();
+          }
+        }}
+      />
+
+      <button
+        type="button"
+        className="admincodingpage-create-category-btn"
+        onClick={handleCreateCategory}
+      >
+        폴더 생성
+      </button>
+    </div>
+  </div>
+</div>
 
         <form className="admincodingpage-form" onSubmit={handleSubmit}>
           <div className="admincodingpage-form-group">

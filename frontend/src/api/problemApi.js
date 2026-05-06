@@ -79,3 +79,67 @@ export const reanalyzeAllSubmissionsWithAi = async () => {
   return res.data;
 };
 
+export const getCategories = async () => {
+  const res = await API.get('/categories');
+  return res.data;
+};
+
+export const createCategory = async (data) => {
+  const res = await API.post('/categories', data);
+  return res.data;
+};
+
+export const deleteCategory = async (categoryId) => {
+  const res = await API.delete(`/categories/${categoryId}`);
+  return res.data;
+};
+
+export const getExamsByCategoryId = async (categoryId) => {
+  const res = await API.get(`/exams/category/${categoryId}`);
+  return res.data;
+};
+
+export const createObjectiveQuestion = async (data) => {
+  const res = await API.post('/objective/questions', data);
+  return res.data;
+};
+
+export const getObjectiveQuestions = async () => {
+  const res = await API.get('/objective/questions');
+  return res.data;
+};
+
+export const getObjectiveQuestionsByCategoryId = async (categoryId) => {
+  const res = await API.get(`/objective/questions/category/${categoryId}`);
+  return res.data;
+};
+
+export const deleteObjectiveQuestion = async (id) => {
+  const res = await API.delete(`/objective/questions/${id}`);
+  return res.data;
+};
+
+export const generateAiObjectiveQuestion = async (data) => {
+  const res = await API.post('/objective/ai-generate', data);
+  return res.data;
+};
+
+export const submitObjectiveAnswer = async (data) => {
+  const res = await API.post('/objective/submissions', data);
+  return res.data;
+};
+
+export const getObjectiveSubmissions = async () => {
+  const res = await API.get('/objective/submissions');
+  return res.data;
+};
+
+export const getObjectiveSubmissionsByStudentId = async (studentId) => {
+  const res = await API.get(`/objective/submissions/student/${studentId}`);
+  return res.data;
+};
+
+export const getObjectiveSubmissionsByCategoryId = async (categoryId) => {
+  const res = await API.get(`/objective/submissions/category/${categoryId}`);
+  return res.data;
+};
