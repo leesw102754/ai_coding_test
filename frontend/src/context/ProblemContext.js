@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { getProblems, solveProblem } from '../api/problemApi';
+import { getProblems, solveProblem, getExamsByCategory } from '../api/problemApi';
 
 const ProblemContext = createContext();
 
@@ -148,6 +148,22 @@ const transformProblem = (p, index = 0) => ({
     }
   };
 
+const fetchProblemsByCategory = async (categoryId) => {
+  try {
+    setLoading(true);
+
+    const res = await getExamsByCategory(categoryId);
+    const data = (res.data || []).map((p, i) => transformProblem(p, i));
+
+    setProblems(data);
+  } catch (err) {
+    console.error('카테고리 문제 불러오기 실패:', err);
+    setProblems([]);
+  } finally {
+    setLoading(false);
+  }
+};
+
   const solvedCount = problems.filter((p) => p.solved).length;
   const totalCount = problems.length;
 
@@ -161,13 +177,14 @@ const transformProblem = (p, index = 0) => ({
 
   return (
     <ProblemContext.Provider
-      value={{
-        problems,
-        fetchProblems,
-        markSolved,
-        stats,
-        loading,
-      }}
+	value={{
+ 	 problems,
+ 	 fetchProblems,
+ 	 fetchProblemsByCategory,
+  	markSolved,
+  	stats,
+  	loading,
+	}}
     >
       {children}
     </ProblemContext.Provider>

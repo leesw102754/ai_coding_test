@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { useProblem } from '../context/ProblemContext';
 import { useTheme } from '../context/ThemeContext';
@@ -26,6 +26,8 @@ const LANGUAGES = [
 export default function ProblemPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromCategoryId = location.state?.fromCategoryId;
   const { problems } = useProblem();
   const { theme } = useTheme();
   const { user } = useAuth();
@@ -73,7 +75,12 @@ if (alreadySubmitted) {
   setHasSubmitted(true);
   submitLockRef.current = true;
   toast.error('이미 제출한 문제입니다.');
-  navigate('/');
+
+  if (fromCategoryId) {
+    navigate(`/exam/${fromCategoryId}`, { replace: true });
+  } else {
+    navigate('/', { replace: true });
+  }
 }
     } catch (err) {
       console.error('제출 여부 확인 실패:', err);
@@ -81,7 +88,7 @@ if (alreadySubmitted) {
   };
 
   checkAlreadySubmitted();
-}, [id, user?.studentId, navigate]);
+}, [id, user?.studentId, navigate, fromCategoryId]);
 
   useEffect(() => {
     const fetchTestCases = async () => {

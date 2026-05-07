@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import {
   getCategories,
   getObjectiveQuestionsByCategoryId,
@@ -7,11 +9,27 @@ import {
 import './ObjectiveSolvePage.css';
 
 export default function ObjectiveSolvePage() {
-  const [categories, setCategories] = useState([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [searchParams] = useSearchParams();
+  const categoryIdFromUrl = searchParams.get('categoryId');
+  const { user } = useAuth();
 
-  const [studentId, setStudentId] = useState('2026001');
-  const [studentName, setStudentName] = useState('이승욱');
+  const [categories, setCategories] = useState([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(
+    categoryIdFromUrl || ''
+  );
+
+  const [studentId, setStudentId] = useState('');
+  const [studentName, setStudentName] = useState('');
+
+  useEffect(() => {
+    if (user?.studentId) {
+      setStudentId(user.studentId);
+    }
+
+    if (user?.name || user?.username) {
+      setStudentName(user.name || user.username);
+    }
+  }, [user]);
 
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
@@ -31,9 +49,11 @@ export default function ObjectiveSolvePage() {
       const list = data || [];
       setCategories(list);
 
-      if (list.length > 0 && !selectedCategoryId) {
-        setSelectedCategoryId(String(list[0].id));
-      }
+if (categoryIdFromUrl) {
+  setSelectedCategoryId(String(categoryIdFromUrl));
+} else if (list.length > 0 && !selectedCategoryId) {
+  setSelectedCategoryId(String(list[0].id));
+}
     } catch (err) {
       console.error('카테고리 조회 실패:', err);
       setCategories([]);

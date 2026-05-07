@@ -216,3 +216,7 @@
     grid-template-columns: 1fr;
   }
 }
+
+.objective-result-title {
+  margin-top: 28px;
+}

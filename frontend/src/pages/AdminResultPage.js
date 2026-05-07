@@ -18,6 +18,8 @@ import {
   getSubmissionDetail,
   getProblems,
   reanalyzeAllSubmissionsWithAi,
+  getObjectiveQuestions,
+  getObjectiveSubmissions,
 } from '../api/problemApi';
 import './AdminResultPage.css';
 
@@ -71,6 +73,8 @@ const [isReanalyzing, setIsReanalyzing] = useState(false);
 const [search, setSearch] = useState('');
 const [languageFilter, setLanguageFilter] = useState('all');
 const [exams, setExams] = useState([]);
+const [objectiveQuestions, setObjectiveQuestions] = useState([]);
+const [objectiveSubmissions, setObjectiveSubmissions] = useState([]);
 const [currentPage, setCurrentPage] = useState(1);
 const pageSize = 10;
 
@@ -102,6 +106,26 @@ useEffect(() => {
   };
 
   fetchExams();
+}, []);
+
+useEffect(() => {
+  const fetchObjectiveResultData = async () => {
+    try {
+      const [questions, submissions] = await Promise.all([
+        getObjectiveQuestions(),
+        getObjectiveSubmissions(),
+      ]);
+
+      setObjectiveQuestions(questions || []);
+      setObjectiveSubmissions(submissions || []);
+    } catch (err) {
+      console.error('객관식 결과 데이터 조회 실패:', err);
+      setObjectiveQuestions([]);
+      setObjectiveSubmissions([]);
+    }
+  };
+
+  fetchObjectiveResultData();
 }, []);
 
   const handleSelectSubmission = async (id) => {
@@ -209,6 +233,25 @@ const maxTotalScore = useMemo(() => {
   return exams.reduce((sum, exam) => sum + Number(exam.point ?? 0), 0);
 }, [exams]);
 
+const objectiveQuestionPointMap = useMemo(() => {
+  const map = new Map();
+
+  objectiveQuestions.forEach((question) => {
+    map.set(String(question.id), Number(question.point ?? 0));
+  });
+
+  return map;
+}, [objectiveQuestions]);
+
+const maxObjectiveTotalScore = useMemo(() => {
+  return objectiveQuestions.reduce(
+    (sum, question) => sum + Number(question.point ?? 0),
+    0
+  );
+}, [objectiveQuestions]);
+
+const maxCombinedTotalScore = maxTotalScore + maxObjectiveTotalScore;
+
 const getSubmissionPointInfo = (submission) => {
   const maxPoint = examPointMap.get(String(submission?.examId)) ?? 0;
   const earnedPoint =
@@ -221,110 +264,202 @@ const getSubmissionPointInfo = (submission) => {
 };
 
 const studentScoreData = useMemo(() => {
-  const latestSubmissionMap = new Map();
+  const latestCodingSubmissionMap = new Map();
 
   submissions.forEach((item) => {
     if (!item.studentId || item.examId == null) return;
 
     const key = `${item.studentId}__${item.examId}`;
-    const prev = latestSubmissionMap.get(key);
+    const prev = latestCodingSubmissionMap.get(key);
 
     const currentTime = new Date(item.submitTime || 0).getTime();
     const prevTime = new Date(prev?.submitTime || 0).getTime();
 
     if (!prev || currentTime >= prevTime) {
-      latestSubmissionMap.set(key, item);
+      latestCodingSubmissionMap.set(key, item);
+    }
+  });
+
+  const latestObjectiveSubmissionMap = new Map();
+
+  objectiveSubmissions.forEach((item) => {
+    if (!item.studentId || item.questionId == null) return;
+
+    const key = `${item.studentId}__${item.questionId}`;
+    const prev = latestObjectiveSubmissionMap.get(key);
+
+    const currentTime = new Date(item.submitTime || 0).getTime();
+    const prevTime = new Date(prev?.submitTime || 0).getTime();
+
+    if (!prev || currentTime >= prevTime) {
+      latestObjectiveSubmissionMap.set(key, item);
     }
   });
 
   const studentMap = new Map();
 
-  latestSubmissionMap.forEach((item) => {
+  const getStudentRow = (item) => {
     const studentId = item.studentId || 'unknown';
 
     if (!studentMap.has(studentId)) {
       studentMap.set(studentId, {
         studentId,
         studentName: item.studentName || '-',
+
+        codingSubmittedCount: 0,
+        codingAcceptedCount: 0,
+        codingScore: 0,
+
+        objectiveSubmittedCount: 0,
+        objectiveAcceptedCount: 0,
+        objectiveScore: 0,
+
         submittedCount: 0,
         acceptedCount: 0,
+        totalScore: 0,
         score: 0,
-        maxScore: maxTotalScore,
+        maxScore: maxCombinedTotalScore,
       });
     }
 
     const row = studentMap.get(studentId);
+
+    if ((row.studentName === '-' || !row.studentName) && item.studentName) {
+      row.studentName = item.studentName;
+    }
+
+    return row;
+  };
+
+  latestCodingSubmissionMap.forEach((item) => {
+    const row = getStudentRow(item);
     const point = examPointMap.get(String(item.examId)) ?? 0;
 
-    row.submittedCount += 1;
+    row.codingSubmittedCount += 1;
 
     if (normalizeSubmissionStatus(item) === 'accepted') {
-      row.acceptedCount += 1;
-      row.score += point;
+      row.codingAcceptedCount += 1;
+      row.codingScore += point;
     }
   });
 
+  latestObjectiveSubmissionMap.forEach((item) => {
+    const row = getStudentRow(item);
+
+    const isCorrect =
+      item.correct === true ||
+      item.isCorrect === true ||
+      String(item.correct).toLowerCase() === 'true';
+
+    const maxPoint =
+      objectiveQuestionPointMap.get(String(item.questionId)) ??
+      Number(item.point ?? 0);
+
+    const earnedPoint = Number(
+      item.earnedPoint ?? (isCorrect ? maxPoint : 0)
+    );
+
+    row.objectiveSubmittedCount += 1;
+
+    if (isCorrect) {
+      row.objectiveAcceptedCount += 1;
+    }
+
+    row.objectiveScore += Number.isFinite(earnedPoint) ? earnedPoint : 0;
+  });
+
   return Array.from(studentMap.values())
-    .map((row) => ({
-      ...row,
-      scoreRate:
-        row.maxScore === 0 ? 0 : Math.round((row.score / row.maxScore) * 100),
-    }))
+    .map((row) => {
+      const submittedCount =
+        row.codingSubmittedCount + row.objectiveSubmittedCount;
+
+      const acceptedCount =
+        row.codingAcceptedCount + row.objectiveAcceptedCount;
+
+      const totalScore = row.codingScore + row.objectiveScore;
+
+      return {
+        ...row,
+        submittedCount,
+        acceptedCount,
+        totalScore,
+        score: totalScore,
+        maxScore: maxCombinedTotalScore,
+        scoreRate:
+          maxCombinedTotalScore === 0
+            ? 0
+            : Math.round((totalScore / maxCombinedTotalScore) * 100),
+      };
+    })
     .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
+      if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
       return String(a.studentName).localeCompare(String(b.studentName), 'ko');
     });
-}, [submissions, examPointMap, maxTotalScore]);
+}, [
+  submissions,
+  objectiveSubmissions,
+  examPointMap,
+  objectiveQuestionPointMap,
+  maxCombinedTotalScore,
+]);
 
   const stats = useMemo(() => {
-    const uniqueStudents = new Set(
-      submissions.map((s) => s.studentId).filter(Boolean)
-    ).size;
+  const uniqueStudentSet = new Set();
 
-    const languageCount = submissions.reduce((acc, cur) => {
-      const lang = cur.language || 'unknown';
-      acc[lang] = (acc[lang] || 0) + 1;
-      return acc;
-    }, {});
+  submissions.forEach((s) => {
+    if (s.studentId) uniqueStudentSet.add(s.studentId);
+  });
 
-    const languageChartData = Object.entries(languageCount).map(([name, value]) => ({
-      name,
-      value,
+  objectiveSubmissions.forEach((s) => {
+    if (s.studentId) uniqueStudentSet.add(s.studentId);
+  });
+
+  const languageCount = submissions.reduce((acc, cur) => {
+    const lang = cur.language || 'unknown';
+    acc[lang] = (acc[lang] || 0) + 1;
+    return acc;
+  }, {});
+
+  const languageChartData = Object.entries(languageCount).map(([name, value]) => ({
+    name,
+    value,
+  }));
+
+  const timeBucketCount = submissions.reduce((acc, cur) => {
+    if (!cur.submitTime) return acc;
+
+    const date = new Date(cur.submitTime);
+    if (Number.isNaN(date.getTime())) return acc;
+
+    const hour = String(date.getHours()).padStart(2, '0');
+    const startMinute = Math.floor(date.getMinutes() / 10) * 10;
+    const endMinute = startMinute + 9;
+
+    const start = String(startMinute).padStart(2, '0');
+    const end = String(endMinute).padStart(2, '0');
+
+    const bucket = `${hour}:${start}~${hour}:${end}`;
+
+    acc[bucket] = (acc[bucket] || 0) + 1;
+    return acc;
+  }, {});
+
+  const hourlyChartData = Object.keys(timeBucketCount)
+    .sort()
+    .map((hour) => ({
+      hour,
+      count: timeBucketCount[hour],
     }));
 
-    const timeBucketCount = submissions.reduce((acc, cur) => {
-      if (!cur.submitTime) return acc;
-
-      const date = new Date(cur.submitTime);
-      if (Number.isNaN(date.getTime())) return acc;
-
-      const hour = String(date.getHours()).padStart(2, '0');
-      const startMinute = Math.floor(date.getMinutes() / 10) * 10;
-      const endMinute = startMinute + 9;
-
-      const start = String(startMinute).padStart(2, '0');
-      const end = String(endMinute).padStart(2, '0');
-
-      const bucket = `${hour}:${start}~${hour}:${end}`;
-
-      acc[bucket] = (acc[bucket] || 0) + 1;
-      return acc;
-    }, {});
-
-    const hourlyChartData = Object.keys(timeBucketCount)
-      .sort()
-      .map((hour) => ({
-        hour,
-        count: timeBucketCount[hour],
-      }));
-
-    return {
-      totalSubmissions: submissions.length,
-      uniqueStudents,
-      languageChartData,
-      hourlyChartData,
-    };
-  }, [submissions]);
+  return {
+    totalSubmissions: submissions.length + objectiveSubmissions.length,
+    codingSubmissionCount: submissions.length,
+    objectiveSubmissionCount: objectiveSubmissions.length,
+    uniqueStudents: uniqueStudentSet.size,
+    languageChartData,
+    hourlyChartData,
+  };
+}, [submissions, objectiveSubmissions]);
 
 const feedbackStatusData = useMemo(() => {
   const counter = submissions.reduce(
@@ -585,28 +720,27 @@ return (
       </button>
     </div>
 
-    <div className="summary-grid">
-        <div className="summary-card">
-          <span className="summary-label">전체 제출 수</span>
-          <strong className="summary-value">{stats.totalSubmissions}</strong>
-        </div>
-        <div className="summary-card">
-          <span className="summary-label">제출 학생 수</span>
-          <strong className="summary-value">{stats.uniqueStudents}</strong>
-        </div>
-        <div className="summary-card">
-          <span className="summary-label">선택된 제출</span>
-          <strong className="summary-value">
-            {selectedSubmission ? `#${selectedSubmission.id}` : '-'}
-          </strong>
-        </div>
-        <div className="summary-card">
-          <span className="summary-label">선택된 언어</span>
-          <strong className="summary-value">
-            {selectedSubmission?.language || '-'}
-          </strong>
-        </div>
-      </div>
+<div className="summary-grid">
+  <div className="summary-card">
+    <span className="summary-label">전체 제출 수</span>
+    <strong className="summary-value">{stats.totalSubmissions}</strong>
+  </div>
+
+  <div className="summary-card">
+    <span className="summary-label">제출 학생 수</span>
+    <strong className="summary-value">{stats.uniqueStudents}</strong>
+  </div>
+
+  <div className="summary-card">
+    <span className="summary-label">코딩 제출 수</span>
+    <strong className="summary-value">{stats.codingSubmissionCount}</strong>
+  </div>
+
+  <div className="summary-card">
+    <span className="summary-label">객관식 제출 수</span>
+    <strong className="summary-value">{stats.objectiveSubmissionCount}</strong>
+  </div>
+</div>
 
       <div className="ai-analysis-card">
         <div className="ai-analysis-main">
@@ -641,7 +775,9 @@ return (
       <h3>학생별 점수 현황</h3>
       <p>학생별 최신 제출 기준으로 총점과 정답 수를 확인합니다.</p>
     </div>
-    <span>현재 시험 만점: {maxTotalScore}점</span>
+    <span>
+  코딩 {maxTotalScore}점 + 객관식 {maxObjectiveTotalScore}점 = 총 {maxCombinedTotalScore}점
+</span>
   </div>
 
   {studentScoreData.length === 0 ? (
@@ -652,26 +788,34 @@ return (
     <div className="student-score-table-wrap">
       <table className="student-score-table">
         <thead>
-          <tr>
-            <th>이름</th>
-            <th>학번</th>
-            <th>점수</th>
-            <th>달성률</th>
-            <th>정답 / 제출</th>
-          </tr>
+	<tr>
+  	<th>이름</th>
+  	<th>학번</th>
+  	<th>코딩 점수</th>
+  	<th>객관식 점수</th>
+  	<th>총점</th>
+  	<th>달성률</th>
+  	<th>정답 / 제출</th>
+	</tr>
         </thead>
         <tbody>
           {studentScoreData.map((row) => (
             <tr key={row.studentId}>
               <td>{row.studentName}</td>
               <td>{row.studentId}</td>
-              <td>
-                <strong>{row.score}</strong> / {row.maxScore}점
-              </td>
-              <td>{row.scoreRate}%</td>
-              <td>
-                {row.acceptedCount} / {row.submittedCount}
-              </td>
+<td>
+  <strong>{row.codingScore}</strong> / {maxTotalScore}점
+</td>
+<td>
+  <strong>{row.objectiveScore}</strong> / {maxObjectiveTotalScore}점
+</td>
+<td>
+  <strong>{row.totalScore}</strong> / {row.maxScore}점
+</td>
+<td>{row.scoreRate}%</td>
+<td>
+  {row.acceptedCount} / {row.submittedCount}
+</td>
             </tr>
           ))}
         </tbody>

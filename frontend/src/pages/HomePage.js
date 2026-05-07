@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProblem } from '../context/ProblemContext';
-import { getAllSubmissions } from '../api/problemApi';
+import {
+  getAllSubmissions,
+  getCategories,
+} from '../api/problemApi';
 import './HomePage.css';
 
 const difficultyLabel = {
@@ -34,6 +37,9 @@ export default function HomePage() {
   const savedUser = sessionStorage.getItem('user');
   const user = savedUser ? JSON.parse(savedUser) : null;
 
+  const [categories, setCategories] = useState([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+
   const currentStudentId =
     user?.studentId ||
     user?.loginId ||
@@ -51,9 +57,24 @@ export default function HomePage() {
     }
   };
 
-  useEffect(() => {
-    fetchSubmissions();
-  }, []);
+  
+
+const fetchCategoriesData = async () => {
+  try {
+    const data = await getCategories();
+    setCategories(data);
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+useEffect(() => {
+  fetchCategoriesData();
+}, []);
+
+const filteredCategories = categories.filter((cat) =>
+  String(cat.title || '').toLowerCase().includes(search.toLowerCase())
+);
 
   const mySubmissions = useMemo(() => {
     if (!currentStudentId) return [];
@@ -87,19 +108,19 @@ export default function HomePage() {
     });
   }, [problems, mySubmissions]);
 
-  const handleRefresh = async () => {
-    if (isRefreshing) return;
+const handleRefresh = async () => {
+  if (isRefreshing) return;
 
-    try {
-      setIsRefreshing(true);
-      await fetchProblems();
-      await fetchSubmissions();
-    } finally {
-      setTimeout(() => {
-        setIsRefreshing(false);
-      }, 500);
-    }
-  };
+  try {
+    setIsRefreshing(true);
+    await fetchCategoriesData();
+    await fetchSubmissions();    // 기존 그대로
+  } finally {
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 500);
+  }
+};
 
   const computedStats = {
     total: problemsWithStatus.length,
@@ -286,7 +307,7 @@ export default function HomePage() {
 
               <input
                 type="text"
-                placeholder="문제 검색..."
+                placeholder="시험 검색..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="search-input"
@@ -341,49 +362,32 @@ export default function HomePage() {
 </button>
           </div>
 
-          <div className="problem-list">
-            {filtered.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">🔍</div>
-                <p>검색 결과가 없습니다.</p>
-              </div>
-            ) : (
-              filtered.map((problem) => (
-                <div
-                  key={problem.id}
-                  className={`problem-item ${problem.submitted ? 'solved' : ''}`}
-                  onClick={() => navigate(`/problem/${problem.id}`)}
-                >
-                  <div className="problem-left">
-                    <div className={`solve-indicator ${problem.submitted ? 'solved' : ''}`}>
-                      {problem.submitted ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      ) : null}
-                    </div>
+<div className="problem-list">
+  {filteredCategories.length === 0 ? (
+    <div className="empty-state">
+      <div className="empty-icon">🔍</div>
+      <p>검색 결과가 없습니다.</p>
+    </div>
+  ) : (
+    filteredCategories.map((cat) => (
+      <div
+        key={cat.id}
+        className="problem-item"
+        onClick={() => navigate(`/exam/${cat.id}`)}
+      >
+        <div className="problem-left">
+          <span className="problem-title">{cat.title}</span>
+        </div>
 
-                    <span className="problem-number">{problem.number}</span>
-                    <span className="problem-title">{problem.title}</span>
-                  </div>
-
-                  <div className="problem-right">
-                    <div className="problem-tags">
-                      {(problem.tags || []).map((tag) => (
-                        <span key={tag} className="tag">{tag}</span>
-                      ))}
-                    </div>
-
-                    <span className={`difficulty-badge ${difficultyClass[problem.difficulty] || 'tag-easy'}`}>
-                      {difficultyLabel[problem.difficulty] || '쉬움'}
-                    </span>
-
-                    <span className="time-limit">{problem.timeLimit}ms</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+        <div className="problem-right">
+          <span className="difficulty-badge tag-easy">
+            시험 시작
+          </span>
+        </div>
+      </div>
+    ))
+  )}
+</div>
         </main>
       </div>
     </div>

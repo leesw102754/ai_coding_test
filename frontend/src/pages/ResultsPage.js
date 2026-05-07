@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getSubmissionsByStudentId } from '../api/problemApi';
+import {
+  getSubmissionsByStudentId,
+  getObjectiveQuestions,
+  getObjectiveSubmissions,
+} from '../api/problemApi';
 import { useProblem } from '../context/ProblemContext';
 import './ResultsPage.css';
 import {
@@ -20,23 +24,50 @@ export default function ResultsPage() {
 
 const { user } = useAuth();
 const [mySubmissions, setMySubmissions] = useState([]);
+const [objectiveQuestions, setObjectiveQuestions] = useState([]);
+const [myObjectiveSubmissions, setMyObjectiveSubmissions] = useState([]);
 const [loadingResults, setLoadingResults] = useState(true);
-
 useEffect(() => {
   const fetchMySubmissions = async () => {
     if (!user?.studentId) {
       setMySubmissions([]);
+      setObjectiveQuestions([]);
+      setMyObjectiveSubmissions([]);
       setLoadingResults(false);
       return;
     }
 
     try {
       setLoadingResults(true);
-      const data = await getSubmissionsByStudentId(user.studentId);
-      setMySubmissions(data || []);
+
+const [codingData, objectiveQuestionData, objectiveSubmissionData] =
+  await Promise.all([
+    getSubmissionsByStudentId(user.studentId),
+    getObjectiveQuestions(),
+    getObjectiveSubmissions(),
+  ]);
+
+const filteredObjectiveSubmissions = (objectiveSubmissionData || []).filter(
+  (item) => {
+    const sameStudentId =
+      String(item.studentId || '').trim() === String(user?.studentId || '').trim();
+
+    const sameName =
+      String(item.studentName || '').trim() === String(user?.name || '').trim();
+
+    return sameStudentId || sameName;
+  }
+);
+
+setMySubmissions(codingData || []);
+setObjectiveQuestions(objectiveQuestionData || []);
+setMyObjectiveSubmissions(filteredObjectiveSubmissions);
+
     } catch (err) {
       console.error('내 제출 결과 조회 실패:', err);
       setMySubmissions([]);
+      setObjectiveQuestions([]);
+      setMyObjectiveSubmissions([]);
     } finally {
       setLoadingResults(false);
     }
@@ -44,7 +75,6 @@ useEffect(() => {
 
   fetchMySubmissions();
 }, [user?.studentId]);
-
   const { problems } = useProblem();
 
  const difficultyLabelMap = {
@@ -56,72 +86,175 @@ useEffect(() => {
   어려움: '어려움',
   };
 
+const problemMap = useMemo(() => {
+  const map = new Map();
+
+  problems.forEach((problem) => {
+    map.set(String(problem.id), problem);
+  });
+
+  return map;
+}, [problems]);
+
 const resultList = useMemo(() => {
-  return problems
-    .map((problem) => {
-      const relatedSubmissions = mySubmissions.filter(
-        (item) => String(item.examId) === String(problem.id)
-      );
+  return mySubmissions.map((submission) => {
+    const problem = problemMap.get(String(submission.examId));
 
-      const latestSubmission = relatedSubmissions[0] || null;
-      const submitted = !!latestSubmission;
+    const isCorrect =
+      submission.correct === true ||
+      submission.isCorrect === true ||
+      submission.status === 'accepted' ||
+      String(submission.correct).toLowerCase() === 'true';
 
-const isCorrect = latestSubmission?.correct ?? latestSubmission?.isCorrect ?? false;
-const point = Number(problem.point ?? 0);
-const earnedPoint =
-  latestSubmission?.earnedPoint ?? (isCorrect ? point : 0);
+    const point = Number(
+      problem?.point ??
+      submission.point ??
+      submission.maxPoint ??
+      submission.earnedPoint ??
+      0
+    );
 
-return {
-  ...problem,
-  submitted,
-  isCorrect,
-  point,
-  earnedPoint,
-  errorType: latestSubmission?.status ?? null,
-  summary: latestSubmission?.aiSummary ?? '',
-  wrongReason: latestSubmission?.aiWrongReason ?? '',
-  solutionDirection: latestSubmission?.aiSolutionDirection ?? '',
-  improvement: latestSubmission?.aiImprovement ?? '',
-  submitTime: latestSubmission?.submitTime ?? null,
-};
-    })
-    .filter((problem) => problem.submitted);
-}, [problems, mySubmissions]);
+    const earnedPoint = Number(
+      submission.earnedPoint ?? (isCorrect ? point : 0)
+    );
+
+    return {
+      id: submission.id,
+      examId: submission.examId,
+      title: problem?.title || `코딩 문제 ${submission.examId}`,
+      description: problem?.description || '',
+      difficulty: problem?.difficulty || 'easy',
+      submitted: true,
+      isCorrect,
+      point,
+      earnedPoint,
+      errorType: submission.status ?? null,
+      summary: submission.aiSummary ?? '',
+      wrongReason: submission.aiWrongReason ?? '',
+      solutionDirection: submission.aiSolutionDirection ?? '',
+      improvement: submission.aiImprovement ?? '',
+      submitTime: submission.submitTime ?? null,
+    };
+  });
+}, [mySubmissions, problemMap]);
+
+const objectiveQuestionMap = useMemo(() => {
+  const map = new Map();
+
+  objectiveQuestions.forEach((question) => {
+    map.set(String(question.id), question);
+  });
+
+  return map;
+}, [objectiveQuestions]);
+
+const objectiveResultList = useMemo(() => {
+  return myObjectiveSubmissions.map((submission) => {
+    const question = objectiveQuestionMap.get(String(submission.questionId));
+
+    const isCorrect =
+      submission.correct === true ||
+      submission.isCorrect === true ||
+      String(submission.correct).toLowerCase() === 'true';
+
+    const point = Number(question?.point ?? submission.point ?? 0);
+    const earnedPoint = Number(
+      submission.earnedPoint ?? (isCorrect ? point : 0)
+    );
+
+    return {
+      id: submission.id,
+      questionId: submission.questionId,
+      title: question?.title || `객관식 문제 ${submission.questionId}`,
+      description: question?.description || '',
+      difficulty: question?.difficulty || 'easy',
+      point,
+      earnedPoint,
+      isCorrect,
+      selectedAnswer: submission.selectedAnswer,
+      correctAnswer: submission.correctAnswer,
+      explanation: question?.explanation || '',
+      submitTime: submission.submitTime,
+    };
+  });
+}, [myObjectiveSubmissions, objectiveQuestionMap]);
 
 const stats = useMemo(() => {
-  const total = resultList.length;
-  const correct = resultList.filter((p) => p.isCorrect).length;
+  const codingTotal = resultList.length;
+  const codingCorrect = resultList.filter((p) => p.isCorrect).length;
 
-  const totalScore = resultList.reduce(
+  const objectiveTotal = objectiveResultList.length;
+  const objectiveCorrect = objectiveResultList.filter((p) => p.isCorrect).length;
+
+  const total = codingTotal + objectiveTotal;
+  const correct = codingCorrect + objectiveCorrect;
+
+  const codingScore = resultList.reduce(
     (sum, p) => sum + Number(p.earnedPoint ?? 0),
     0
   );
 
-  const maxScore = resultList.reduce(
+  const objectiveScore = objectiveResultList.reduce(
+    (sum, p) => sum + Number(p.earnedPoint ?? 0),
+    0
+  );
+
+const codingMaxScore =
+  problems.length > 0
+    ? problems.reduce((sum, p) => sum + Number(p.point ?? 0), 0)
+    : resultList.reduce((sum, p) => sum + Number(p.point ?? 0), 0);
+
+  const objectiveMaxScore = objectiveQuestions.reduce(
     (sum, p) => sum + Number(p.point ?? 0),
     0
   );
 
-  const easy = resultList.filter((p) => p.difficulty === 'easy' || p.difficulty === '쉬움');
-  const medium = resultList.filter((p) => p.difficulty === 'medium' || p.difficulty === '보통');
-  const hard = resultList.filter((p) => p.difficulty === 'hard' || p.difficulty === '어려움');
+  const totalScore = codingScore + objectiveScore;
+  const maxScore = codingMaxScore + objectiveMaxScore;
+
+  const allResults = [...resultList, ...objectiveResultList];
+
+  const easy = allResults.filter(
+    (p) => p.difficulty === 'easy' || p.difficulty === '쉬움'
+  );
+  const medium = allResults.filter(
+    (p) => p.difficulty === 'medium' || p.difficulty === '보통'
+  );
+  const hard = allResults.filter(
+    (p) => p.difficulty === 'hard' || p.difficulty === '어려움'
+  );
 
   const rate = (arr) =>
-    arr.length === 0 ? 0 : Math.round((arr.filter((p) => p.isCorrect).length / arr.length) * 100);
+    arr.length === 0
+      ? 0
+      : Math.round(
+          (arr.filter((p) => p.isCorrect).length / arr.length) * 100
+        );
 
   return {
     total,
     correct,
+
+    codingTotal,
+    codingCorrect,
+    codingScore,
+    codingMaxScore,
+
+    objectiveTotal,
+    objectiveCorrect,
+    objectiveScore,
+    objectiveMaxScore,
+
     totalScore,
     maxScore,
+
     scoreRate: maxScore === 0 ? 0 : Math.round((totalScore / maxScore) * 100),
     overallRate: total === 0 ? 0 : Math.round((correct / total) * 100),
     easyRate: rate(easy),
     mediumRate: rate(medium),
     hardRate: rate(hard),
   };
-}, [resultList]);
-
+}, [resultList, objectiveResultList, problems, objectiveQuestions]);
   const lineChartData = [
   { name: '쉬움', rate: stats.easyRate },
   { name: '보통', rate: stats.mediumRate },
@@ -154,22 +287,28 @@ return (
 <div className="results-summary">
   <div className="results-stat-card">
     <div className="results-stat-value">{stats.correct}/{stats.total}</div>
-    <div className="results-stat-label">정답 / 제출</div>
+    <div className="results-stat-label">전체 정답 / 제출</div>
   </div>
 
   <div className="results-stat-card">
-    <div className="results-stat-value">{stats.overallRate}%</div>
-    <div className="results-stat-label">전체 정답률</div>
+    <div className="results-stat-value">
+      {stats.codingScore}/{stats.codingMaxScore}
+    </div>
+    <div className="results-stat-label">코딩 점수</div>
   </div>
 
   <div className="results-stat-card">
-    <div className="results-stat-value">{stats.totalScore}/{stats.maxScore}</div>
+    <div className="results-stat-value">
+      {stats.objectiveScore}/{stats.objectiveMaxScore}
+    </div>
+    <div className="results-stat-label">객관식 점수</div>
+  </div>
+
+  <div className="results-stat-card">
+    <div className="results-stat-value">
+      {stats.totalScore}/{stats.maxScore}
+    </div>
     <div className="results-stat-label">총점 / 만점</div>
-  </div>
-
-  <div className="results-stat-card">
-    <div className="results-stat-value">{stats.scoreRate}%</div>
-    <div className="results-stat-label">점수 달성률</div>
   </div>
 </div>
 
@@ -272,6 +411,8 @@ return (
         </div>
       </div>
 
+<h3 className="results-section-title">코딩 문제 결과</h3>
+
       <div className="results-list">
         {resultList.length === 0 ? (
           <div className="results-empty">아직 제출한 문제가 없습니다.</div>
@@ -303,6 +444,42 @@ return (
           ))
         )}
       </div>
+
+	      <h3 className="results-section-title objective-result-title">
+        객관식 문제 결과
+      </h3>
+
+      <div className="results-list">
+        {objectiveResultList.length === 0 ? (
+          <div className="results-empty">아직 제출한 객관식 문제가 없습니다.</div>
+        ) : (
+          objectiveResultList.map((item) => (
+            <div key={`objective-${item.id}`} className="result-card">
+              <div className="result-card-header">
+                <div>
+                  <div className="result-problem-title">{item.title}</div>
+                  <div className="result-meta">
+                    난이도: {difficultyLabelMap[item.difficulty] || '쉬움'} ·
+                    점수: {item.earnedPoint}/{item.point}점 ·
+                    선택 답안: {item.selectedAnswer}번 ·
+                    정답: {item.correctAnswer}번
+                  </div>
+                </div>
+
+                <div className={`result-badge ${item.isCorrect ? 'correct' : 'wrong'}`}>
+                  {item.isCorrect ? '정답' : '오답'}
+                </div>
+              </div>
+
+              <div className="result-ai-box">
+                <p><strong>문제 설명:</strong> {item.description || '-'}</p>
+                <p><strong>해설:</strong> {item.explanation || '-'}</p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
     </div>
   </div>
 );

@@ -99,6 +99,10 @@ export const getExamsByCategoryId = async (categoryId) => {
   return res.data;
 };
 
+export const getExamsByCategory = (categoryId) => {
+  return API.get(`/exams/category/${categoryId}`);
+};
+
 export const createObjectiveQuestion = async (data) => {
   const res = await API.post('/objective/questions', data);
   return res.data;
