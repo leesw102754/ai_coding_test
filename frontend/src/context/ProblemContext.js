@@ -96,6 +96,7 @@ int main() {
 
 const transformProblem = (p, index = 0) => ({
   id: p.id,
+  categoryId: p.categoryId,
   title: p.title,
   description: p.description,
 
@@ -126,7 +127,7 @@ const transformProblem = (p, index = 0) => ({
       const data = (res.data || []).map((p, i) => transformProblem(p, i));
       setProblems(data);
     } catch (err) {
-      console.error('문제 불러오기 실패:', err);
+      console.error('문제 불러오기 실패 그 부분:', err);
     } finally {
       setLoading(false);
     }

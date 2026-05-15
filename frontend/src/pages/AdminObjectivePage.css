@@ -281,3 +281,14 @@
     width: 100%;
   }
 }
+
+@media (max-width: 720px) {
+  .adminobjectivepage-question-actions {
+    flex-direction: row;
+  }
+
+  .adminobjectivepage-edit-btn,
+  .adminobjectivepage-delete-btn {
+    flex: 1;
+  }
+}

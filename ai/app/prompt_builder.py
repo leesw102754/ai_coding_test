@@ -144,6 +144,9 @@ Judge 상태:
 - 문제 조건이 복잡해 원인을 단정하기 어려우면 "추가 확인이 필요합니다"라고 표현하세요.
 - 제한사항이 제공된 경우, 경계값이나 입력 범위와 관련된 오류 가능성을 함께 고려하세요.
 - 피드백은 학생에게 힌트를 주는 용도이며, 정답을 대신 작성하는 용도가 아닙니다.
+- solution_direction에는 입력 처리, 반복 범위, 조건 분기, 출력 형식, 자료구조 접근 중 어디를 먼저 확인해야 하는지 가능한 한 구체적으로 작성하세요.
+- improvement_feedback에는 학생이 다음에 직접 확인할 테스트 관점 1개를 포함하세요.
+- compile/runtime/index 오류는 에러 메시지에서 확인 가능한 표현을 근거로 하되, 없는 원인을 단정하지 마세요.
 
 출력 지침:
 - summary: 40자 내외의 한 문장으로 작성
@@ -264,37 +267,69 @@ def build_problem_draft_prompt(data: GenerateProblemDraftRequest) -> str:
     return prompt.strip()
 
 def build_objective_question_prompt(data: GenerateObjectiveQuestionRequest) -> str:
+    difficulty = data.difficulty if data.difficulty in ["easy", "medium", "hard"] else "easy"
+    point = data.point if isinstance(data.point, int) and data.point > 0 else 10
+
     prompt = f"""
-당신은 웹 기반 시험 시스템의 객관식 문제 생성 AI입니다.
+당신은 웹 기반 코딩 시험 시스템의 객관식 문제 생성 AI입니다.
 
 역할:
 - 관리자의 요청을 바탕으로 객관식 문제 1개를 생성합니다.
-- 반드시 문제 제목, 문제 설명, 보기 4개, 정답 번호, 해설, 난이도, 점수를 생성합니다.
-- 정답은 반드시 하나만 존재해야 합니다.
-- 보기는 서로 의미가 겹치지 않아야 합니다.
-- 설명은 반드시 한국어로 작성합니다.
-- 출력은 반드시 JSON만 반환합니다.
+- 문제는 코딩, 자료구조, 알고리즘, 데이터베이스, 운영체제, 네트워크, 소프트웨어공학 등 개발 학습에 적합해야 합니다.
+- 출력은 반드시 JSON 객체 하나만 반환합니다.
+- markdown, 코드블록, 추가 설명 문장은 절대 출력하지 않습니다.
 
 입력 정보:
 주제:
-{_safe_text(data.topic, 500)}
+{_safe_text(data.topic, 700)}
 
 난이도:
-{data.difficulty}
+{difficulty}
 
 점수:
-{data.point}
+{point}
 
-생성 규칙:
-1. title은 짧고 명확하게 작성합니다.
-2. description은 시험 문제처럼 한 문장 또는 두 문장으로 작성합니다.
-3. choice1~choice4는 모두 서로 다른 선택지여야 합니다.
-4. correctAnswer는 1, 2, 3, 4 중 하나의 정수여야 합니다.
-5. explanation에는 왜 그 보기가 정답인지 간단히 작성합니다.
-6. difficulty는 입력된 난이도를 유지합니다.
-7. point는 입력된 점수를 유지합니다.
-8. source는 "ai"로 작성합니다.
-9. 정답이 2개 이상 될 수 있는 애매한 문제는 만들지 마세요.
-10. 출력은 반드시 JSON 형식만 반환합니다.
+반드시 지킬 규칙:
+1. title은 짧고 명확한 한국어 제목으로 작성합니다.
+2. description은 시험 문제처럼 작성합니다.
+3. choice1, choice2, choice3, choice4는 모두 자연스러운 한국어 보기로 작성합니다.
+4. 보기 4개는 서로 의미가 명확히 달라야 합니다.
+5. 정답은 반드시 하나만 존재해야 합니다.
+6. correctAnswer는 반드시 1, 2, 3, 4 중 하나의 정수입니다.
+7. correctAnswer는 문자열이 아니라 숫자입니다.
+8. explanation은 correctAnswer에 해당하는 보기가 왜 정답인지 설명해야 합니다.
+9. explanation은 정답 보기와 모순되면 안 됩니다.
+10. difficulty는 반드시 입력된 난이도인 "{difficulty}"를 그대로 사용합니다.
+11. point는 반드시 입력된 점수인 {point}를 그대로 사용합니다.
+12. source는 반드시 "ai"로 작성합니다.
+13. "모두 정답", "정답 없음", "위 보기 모두" 같은 선택지는 만들지 마세요.
+14. 너무 쉬운 말장난 문제가 아니라 개념 이해를 확인하는 문제로 만드세요.
+15. 오답 보기는 너무 터무니없는 내용이 아니라, 초보자가 헷갈릴 수 있는 자연스러운 선택지로 작성하세요.
+16. 각 오답이 왜 틀렸는지 explanation에서 간단히 구분될 수 있도록 정답 근거를 명확히 작성하세요.
+17. explanation은 정답 근거 1문장과 주요 오답이 틀린 이유 1문장을 함께 포함하세요.
+18. 정답 보기만 지나치게 길거나 짧지 않게 보기 4개의 길이와 문체를 비슷하게 유지하세요.
+
+난이도 기준:
+- easy: 기본 개념을 묻는 문제
+- medium: 개념 적용 또는 비교가 필요한 문제
+- hard: 코드 흐름, 예외 상황, 성능, 경계 조건까지 생각해야 하는 문제
+
+출력 필드:
+- title
+- description
+- choice1
+- choice2
+- choice3
+- choice4
+- correctAnswer
+- explanation
+- difficulty
+- point
+- source
+
+중요:
+- JSON만 반환하세요.
+- correctAnswer와 explanation의 정답 근거가 반드시 일치해야 합니다.
+- 보기 4개 중 정답은 정확히 하나여야 합니다.
 """
     return prompt.strip()

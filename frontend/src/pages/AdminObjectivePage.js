@@ -33,6 +33,7 @@ export default function AdminObjectivePage() {
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [message, setMessage] = useState('');
+  
 
 const loadCategories = async (preferredId = '') => {
   try {
@@ -155,20 +156,20 @@ const handleDeleteCategory = async () => {
     loadQuestions(selectedCategoryId);
   }, [selectedCategoryId]);
 
-  const resetForm = () => {
-    setSource('manual');
-    setAiPrompt('');
-    setTitle('');
-    setDescription('');
-    setChoice1('');
-    setChoice2('');
-    setChoice3('');
-    setChoice4('');
-    setCorrectAnswer('');
-    setExplanation('');
-    setDifficulty('easy');
-    setPoint(10);
-  };
+const resetForm = () => {
+  setSource('manual');
+  setAiPrompt('');
+  setTitle('');
+  setDescription('');
+  setChoice1('');
+  setChoice2('');
+  setChoice3('');
+  setChoice4('');
+  setCorrectAnswer('');
+  setExplanation('');
+  setDifficulty('easy');
+  setPoint(10);
+};
 
   const handleAiGenerate = async () => {
     if (!selectedCategoryId) {
@@ -218,88 +219,91 @@ const handleDeleteCategory = async () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!selectedCategoryId) {
-      setMessage('시험 폴더를 먼저 선택하세요.');
-      return;
-    }
+  if (!selectedCategoryId) {
+    setMessage('시험 폴더를 먼저 선택하세요.');
+    return;
+  }
 
-    if (
-      !title.trim() ||
-      !description.trim() ||
-      !choice1.trim() ||
-      !choice2.trim() ||
-      !choice3.trim() ||
-      !choice4.trim() ||
-      !correctAnswer
-    ) {
-      setMessage('제목, 설명, 보기 4개, 정답을 모두 입력하세요.');
-      return;
-    }
+  if (
+    !title.trim() ||
+    !description.trim() ||
+    !choice1.trim() ||
+    !choice2.trim() ||
+    !choice3.trim() ||
+    !choice4.trim() ||
+    !correctAnswer
+  ) {
+    setMessage('제목, 설명, 보기 4개, 정답을 모두 입력하세요.');
+    return;
+  }
 
-    const parsedPoint = Number(point);
+  const parsedPoint = Number(point);
 
-    if (!parsedPoint || parsedPoint <= 0) {
-      setMessage('점수는 1점 이상이어야 합니다.');
-      return;
-    }
+  if (!parsedPoint || parsedPoint <= 0) {
+    setMessage('점수는 1점 이상이어야 합니다.');
+    return;
+  }
 
-    try {
-      setLoading(true);
-      setMessage('');
-
-      await createObjectiveQuestion({
-        categoryId: Number(selectedCategoryId),
-        title: title.trim(),
-        description: description.trim(),
-        choice1: choice1.trim(),
-        choice2: choice2.trim(),
-        choice3: choice3.trim(),
-        choice4: choice4.trim(),
-        correctAnswer: Number(correctAnswer),
-        explanation: explanation.trim(),
-        difficulty,
-        point: parsedPoint,
-        source,
-      });
-
-      setMessage('객관식 문제가 등록되었습니다.');
-      resetForm();
-      await loadQuestions(selectedCategoryId);
-    } catch (err) {
-      console.error('객관식 문제 등록 실패:', err);
-      setMessage(
-        err.response?.data?.message ||
-          err.response?.data?.detail ||
-          '객관식 문제 등록에 실패했습니다.'
-      );
-    } finally {
-      setLoading(false);
-    }
+  const payload = {
+    categoryId: Number(selectedCategoryId),
+    title: title.trim(),
+    description: description.trim(),
+    choice1: choice1.trim(),
+    choice2: choice2.trim(),
+    choice3: choice3.trim(),
+    choice4: choice4.trim(),
+    correctAnswer: Number(correctAnswer),
+    explanation: explanation.trim(),
+    difficulty,
+    point: parsedPoint,
+    source: source || 'manual',
   };
 
-  const handleDelete = async (id) => {
-    const confirmed = window.confirm('이 객관식 문제를 삭제하시겠습니까?');
-    if (!confirmed) return;
+  try {
+    setLoading(true);
+    setMessage('');
 
-    try {
-      await deleteObjectiveQuestion(id);
-      setMessage('객관식 문제가 삭제되었습니다.');
-      await loadQuestions(selectedCategoryId);
-    } catch (err) {
-      console.error('객관식 문제 삭제 실패:', err);
-      setMessage('객관식 문제 삭제에 실패했습니다.');
-    }
-  };
+await createObjectiveQuestion(payload);
+setMessage('객관식 문제가 등록되었습니다.');
+
+    resetForm();
+    await loadQuestions(selectedCategoryId);
+  } catch (err) {
+    console.error('객관식 문제 저장 실패:', err);
+    setMessage(
+      err.response?.data?.message ||
+        err.response?.data?.detail ||
+        '객관식 문제 저장에 실패했습니다.'
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleDelete = async (id) => {
+  const confirmed = window.confirm('이 객관식 문제를 삭제하시겠습니까?');
+  if (!confirmed) return;
+
+  try {
+    await deleteObjectiveQuestion(id);
+
+    setMessage('객관식 문제가 삭제되었습니다.');
+    await loadQuestions(selectedCategoryId);
+  } catch (err) {
+    console.error('객관식 문제 삭제 실패:', err);
+    setMessage('객관식 문제 삭제에 실패했습니다.');
+  }
+};
 
   return (
     <div className="adminobjectivepage">
       <div className="adminobjectivepage-inner">
-        <h2 className="adminobjectivepage-title">객관식 문제 등록</h2>
-        <p className="adminobjectivepage-subtitle">
-          시험 폴더에 객관식 문제를 수동 또는 AI로 생성할 수 있습니다.
-        </p>
+	<h2 className="adminobjectivepage-title">객관식 문제 등록</h2>
+	<p className="adminobjectivepage-subtitle">
+  	시험 폴더에 객관식 문제를 수동 또는 AI로 생성할 수 있습니다.
+	</p>
 
         <form className="adminobjectivepage-form" onSubmit={handleSubmit}>
 <div className="adminobjectivepage-category-box">
@@ -504,13 +508,13 @@ const handleDeleteCategory = async () => {
 
           {message && <div className="adminobjectivepage-message">{message}</div>}
 
-          <button
-            className="adminobjectivepage-submit-btn"
-            type="submit"
-            disabled={loading}
-          >
-            {loading ? '등록 중...' : '객관식 문제 등록'}
-          </button>
+<button
+  className="adminobjectivepage-submit-btn"
+  type="submit"
+  disabled={loading}
+>
+  {loading ? '등록 중...' : '객관식 문제 등록'}
+</button>
         </form>
 
         <div className="adminobjectivepage-list-section">
@@ -533,13 +537,13 @@ const handleDeleteCategory = async () => {
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    className="adminobjectivepage-delete-btn"
-                    onClick={() => handleDelete(question.id)}
-                  >
-                    삭제
-                  </button>
+		<button
+  	type="button"
+  	className="adminobjectivepage-delete-btn"
+  	onClick={() => handleDelete(question.id)}
+	>
+  	삭제
+	</button>
                 </div>
               ))}
             </div>

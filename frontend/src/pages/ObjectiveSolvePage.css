@@ -192,3 +192,84 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 전체 제출 영역 */
+.objective-solve-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin: 14px 0 4px;
+}
+
+.objective-solve-list-header h2 {
+  margin: 0 0 6px;
+}
+
+.objective-solve-list-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+/* 전체 제출 / 결과 확인 버튼 */
+.objective-submit-all-btn {
+  min-width: 140px;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent-blue);
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.objective-submit-all-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 800px) {
+  .objective-solve-list-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .objective-submit-all-btn {
+    width: 100%;
+  }
+}
+
+.objective-solve-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.objective-back-btn {
+  padding: 11px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.objective-back-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-blue);
+}
+
+@media (max-width: 800px) {
+  .objective-solve-header-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .objective-back-btn {
+    width: 100%;
+  }
+}

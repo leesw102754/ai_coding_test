@@ -28,6 +28,7 @@ public class ExamCategoryController {
     private final ObjectiveQuestionRepository objectiveQuestionRepository;
     private final ObjectiveSubmissionRepository objectiveSubmissionRepository;
 
+
     @GetMapping
     public List<ExamCategory> getCategories() {
         return categoryRepository.findAll();
@@ -44,8 +45,28 @@ public class ExamCategoryController {
         category.setTitle(request.getTitle().trim());
         category.setCreatedAt(LocalDateTime.now());
 
+        category.setStartTime(request.getStartTime());
+        category.setEndTime(request.getEndTime());
+        category.setDurationMinutes(request.getDurationMinutes());
+
         return categoryRepository.save(category);
     }
+
+@PatchMapping("/{id}")
+public ExamCategory updateCategory(@PathVariable Long id, @RequestBody ExamCategory request) {
+    ExamCategory category = categoryRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("시험 폴더를 찾을 수 없습니다."));
+
+    if (request.getTitle() != null && !request.getTitle().isBlank()) {
+        category.setTitle(request.getTitle().trim());
+    }
+
+    category.setStartTime(request.getStartTime());
+    category.setEndTime(request.getEndTime());
+    category.setDurationMinutes(request.getDurationMinutes());
+
+    return categoryRepository.save(category);
+}
 
     @Transactional
     @DeleteMapping("/{id}")
@@ -62,7 +83,7 @@ public class ExamCategoryController {
         }
 
         examRepository.deleteByCategoryId(id);
-	objectiveSubmissionRepository.deleteByCategoryId(id);
+	    objectiveSubmissionRepository.deleteByCategoryId(id);
         objectiveQuestionRepository.deleteByCategoryId(id);
         categoryRepository.deleteById(id);
 

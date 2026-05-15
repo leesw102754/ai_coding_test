@@ -39,6 +39,16 @@ export const getTestCasesByExamId = async (examId) => {
   return res.data;
 };
 
+export const updateTestCase = async (testCaseId, data) => {
+  const res = await API.patch(`/testcases/${testCaseId}`, data);
+  return res.data;
+};
+
+export const deleteTestCase = async (testCaseId) => {
+  const res = await API.delete(`/testcases/${testCaseId}`);
+  return res.data;
+};
+
 export const getAllSubmissions = async () => {
   const res = await API.get('/submissions');
   return res.data;
@@ -56,6 +66,11 @@ export const deleteExam = async (id) => {
 
 export const updateExam = async (id, data) => {
   const res = await API.patch(`/exams/${id}`, data);
+  return res.data;
+};
+
+export const updateExamOrder = async (items) => {
+  const res = await API.patch('/exams/reorder/bulk', items);
   return res.data;
 };
 
@@ -123,6 +138,11 @@ export const deleteObjectiveQuestion = async (id) => {
   return res.data;
 };
 
+export const updateObjectiveQuestion = async (id, data) => {
+  const res = await API.patch(`/objective/questions/${id}`, data);
+  return res.data;
+};
+
 export const generateAiObjectiveQuestion = async (data) => {
   const res = await API.post('/objective/ai-generate', data);
   return res.data;
@@ -145,5 +165,30 @@ export const getObjectiveSubmissionsByStudentId = async (studentId) => {
 
 export const getObjectiveSubmissionsByCategoryId = async (categoryId) => {
   const res = await API.get(`/objective/submissions/category/${categoryId}`);
+  return res.data;
+};
+
+export const sendExamWarning = async (data) => {
+  const res = await API.post('/exams/warning', data);
+  return res.data;
+};
+
+export const submitBulkExam = async (data) => {
+  const res = await API.post('/submissions/bulk', data);
+
+  if (res.data?.status === 'TIMEOUT') {
+    const error = new Error(res.data.message || '시험 시간이 종료되었습니다.');
+    error.response = {
+      status: 403,
+      data: res.data,
+    };
+    throw error;
+  }
+
+  return res.data;
+};
+
+export const updateCategory = async (categoryId, data) => {
+  const res = await API.patch(`/categories/${categoryId}`, data);
   return res.data;
 };

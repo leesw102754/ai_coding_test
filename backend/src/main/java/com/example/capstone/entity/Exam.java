@@ -29,6 +29,8 @@ public class Exam {
 
     private Long categoryId;
 
+    private Integer displayOrder;
+
     public Long getId() {
         return id;
     }
@@ -92,4 +94,13 @@ public Long getCategoryId() {
 public void setCategoryId(Long categoryId) {
     this.categoryId = categoryId;
 }
+
+public Integer getDisplayOrder() {
+    return displayOrder;
+}
+
+public void setDisplayOrder(Integer displayOrder) {
+    this.displayOrder = displayOrder;
+}
+
 }

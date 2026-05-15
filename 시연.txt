@@ -1,0 +1,243 @@
+문제 1. 쉬움
+제목: 두 수의 합 구하기
+난이도: 쉬움
+문제 설명: 두 정수 A, B를 입력받아 두 수의 합을 출력하시오.
+
+테스트케이스
+1) 입력: 1 2 / 출력: 3
+2) 입력: 10 20 / 출력: 30
+3) 입력: -1 5 / 출력: 4
+
+✅ 정답 코드 (JavaScript)
+const input = require('fs').readFileSync(0, 'utf-8');
+
+// 두 수의 합 구하기
+
+let result = input.trim();
+
+// ----------
+
+const [a, b] = input.trim().split(/\s+/).map(Number);
+result = a + b;
+
+// ----------
+
+console.log(result);
+❌ 오답 코드 1 (Python - 곱셈)
+import sys
+
+# 두 수의 합 구하기
+
+input_data = sys.stdin.read()
+result = input_data.strip()
+
+# ----------
+
+a, b = map(int, input_data.split())
+result = a * b
+
+# ----------
+
+print(result)
+❌ 오답 코드 2 (C - 뺄셈)
+#include <stdio.h>
+
+int main() {
+    // 두 수의 합 구하기
+
+    int input = 0;
+    scanf("%d", &input);
+    int result = input;
+
+    // ----------
+
+    int a, b;
+    scanf("%d %d", &a, &b);
+    result = a - b;
+
+    // ----------
+
+    printf("%d\n", result);
+    return 0;
+}
+=====================================================
+
+문제 2. 보통
+제목: 짝수 홀수 판별하기
+난이도: 보통
+문제 설명: 정수 N을 입력받아, 짝수이면 EVEN, 홀수이면 ODD를 출력하시오.
+
+테스트케이스
+1) 입력: 4 / 출력: EVEN
+2) 입력: 7 / 출력: ODD
+3) 입력: 0 / 출력: EVEN
+
+✅ 정답 코드 (C++)
+#include <iostream>
+using namespace std;
+
+int main() {
+    int input = 0;
+    cin >> input;
+
+    // 삼항 연산자: (조건) ? 참일때 : 거짓일때;
+    cout << (input % 2 == 0 ? "EVEN" : "ODD") << endl;
+
+    return 0;
+}
+
+
+❌ 오답 코드 1 (Java - 반대로 출력)
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+
+        // 짝수 홀수 판별하기
+
+        String input = br.readLine();
+        String result = input.trim();
+
+        // ----------
+
+        int n = Integer.parseInt(input.trim());
+        if (n % 2 == 0) {
+            result = "ODD";
+        } else {
+            result = "EVEN";
+        }
+
+        // ----------
+
+        System.out.println(result);
+    }
+}
+❌ 오답 코드 2 (JavaScript - 잘못된 조건)
+const input = require('fs').readFileSync(0, 'utf-8');
+
+// 짝수 홀수 판별하기
+
+let result = input.trim();
+
+// ----------
+
+const n = Number(input.trim());
+result = (n / 2 === 0) ? "EVEN" : "ODD";
+
+// ----------
+
+console.log(result);
+=====================================================
+
+문제 3. 어려움
+제목: 연속 부분 배열의 최대 합 구하기
+난이도: 어려움
+문제 설명: 정수 N이 주어지고, 길이 N의 정수 배열이 주어진다. 이때 연속된 부분 배열 중에서 합이 가장 큰 값을 출력하시오. 반드시 연속된 구간이어야 하며, 모든 수가 음수일 경우 가장 큰 값을 출력한다.
+
+테스트케이스
+1)
+입력:
+5
+1 2 -5 4 6
+출력:
+10
+
+2)
+입력:
+5
+-1 -2 -3 -4 -5
+출력:
+-1
+
+3)
+입력:
+8
+-2 1 -3 4 -1 2 1 -5
+출력:
+6
+
+✅ 정답 코드 (Python)
+import sys
+
+# 연속 부분 배열의 최대 합 구하기
+
+input_data = sys.stdin.read()
+result = input_data.strip()
+
+# ----------
+
+nums = list(map(int, input_data.split()))
+n = nums[0]
+arr = nums[1:]
+
+current = arr[0]
+maximum = arr[0]
+
+for i in range(1, n):
+    current = max(arr[i], current + arr[i])
+    maximum = max(maximum, current)
+
+result = maximum
+
+# ----------
+
+print(result)
+❌ 오답 코드 1 (Java - 전체 합)
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+
+        // 연속 부분 배열의 최대 합 구하기
+
+        String input = br.readLine();
+        String result = input.trim();
+
+        // ----------
+
+        String[] parts = input.split(" ");
+        int sum = 0;
+        for (int i = 1; i < parts.length; i++) {
+            sum += Integer.parseInt(parts[i]);
+        }
+
+        result = String.valueOf(sum);
+
+        // ----------
+
+        System.out.println(result);
+    }
+}
+❌ 오답 코드 2 (C - 최대값만)
+#include <stdio.h>
+
+int main() {
+    // 연속 부분 배열의 최대 합 구하기
+
+    int input = 0;
+    scanf("%d", &input);
+    int result = input;
+
+    // ----------
+
+    int n, x;
+    scanf("%d", &n);
+
+    int maxVal = -1000000;
+
+    for (int i = 0; i < n; i++) {
+        scanf("%d", &x);
+        if (x > maxVal) maxVal = x;
+    }
+
+    result = maxVal;
+
+    // ----------
+
+    printf("%d\n", result);
+    return 0;
+}

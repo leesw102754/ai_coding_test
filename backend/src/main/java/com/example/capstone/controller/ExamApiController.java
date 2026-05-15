@@ -9,18 +9,16 @@ import com.example.capstone.dto.BulkSubmissionItem;
 import com.example.capstone.dto.BulkSubmissionRequest;
 import com.example.capstone.dto.BulkSubmissionResultItem;
 import com.example.capstone.dto.JudgeResult;
-import com.example.capstone.entity.Exam;
-import com.example.capstone.entity.ExamRecord;
-import com.example.capstone.entity.Submission;
-import com.example.capstone.entity.TestCase;
-import com.example.capstone.repository.ExamRecordRepository;
-import com.example.capstone.repository.ExamRepository;
-import com.example.capstone.repository.SubmissionRepository;
-import com.example.capstone.repository.TestCaseRepository;
+import com.example.capstone.entity.*;
+import com.example.capstone.repository.*;
 import com.example.capstone.service.AiService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -36,19 +34,74 @@ public class ExamApiController {
 
     private final ExamRepository examRepository;
     private final SubmissionRepository submissionRepository;
-    private final AiService aiService;
     private final TestCaseRepository testCaseRepository;
     private final ExamRecordRepository examRecordRepository;
+    private final ExamCategoryRepository categoryRepository;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final AiService aiService;
 
-    @GetMapping("/exams")
-    public List<Exam> getAllExams() {
-        return examRepository.findAll();
-    }
-
-@GetMapping("/exams/category/{categoryId}")
-public List<Exam> getExamsByCategory(@PathVariable Long categoryId) {
-    return examRepository.findByCategoryId(categoryId);
+private List<Exam> sortExams(List<Exam> exams) {
+    return exams.stream()
+            .sorted(
+                    Comparator
+                            .comparing((Exam exam) ->
+                                    exam.getDisplayOrder() == null
+                                            ? Integer.MAX_VALUE
+                                            : exam.getDisplayOrder()
+                            )
+                            .thenComparing(exam ->
+                                    exam.getId() == null
+                                            ? Long.MAX_VALUE
+                                            : exam.getId()
+                            )
+            )
+            .toList();
 }
+
+private Integer getNextDisplayOrder(Long categoryId) {
+    List<Exam> exams = categoryId == null
+            ? examRepository.findAll()
+            : examRepository.findByCategoryId(categoryId);
+
+    return exams.stream()
+            .map(Exam::getDisplayOrder)
+            .filter(order -> order != null)
+            .max(Integer::compareTo)
+            .orElse(0) + 1;
+}
+
+@GetMapping("/exams")
+public List<Exam> getAllExams() {
+    return sortExams(examRepository.findAll());
+}
+
+    @GetMapping("/exams/category/{categoryId}")
+    public ResponseEntity<?> getExamsByCategory(@PathVariable Long categoryId) {
+        ExamCategory category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new RuntimeException("폴더를 찾을 수 없습니다."));
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (category.getStartTime() != null && now.isBefore(category.getStartTime())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of(
+                            "status", "BEFORE_EXAM",
+                            "message", "시험 시작 전입니다.",
+                            "startTime", category.getStartTime()
+                    ));
+        }
+
+        if (category.getEndTime() != null && now.isAfter(category.getEndTime())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of(
+                            "status", "EXAM_ENDED",
+                            "message", "이미 종료된 시험입니다."
+                    ));
+        }
+
+        List<Exam> exams = sortExams(examRepository.findByCategoryId(categoryId));
+	return ResponseEntity.ok(exams);
+    }
 
     @PostMapping("/ai/problems/generate")
     public AiProblemDraftResponse generateAiProblem(@RequestBody AiProblemDraftRequest request) {
@@ -73,6 +126,10 @@ public List<Exam> getExamsByCategory(@PathVariable Long categoryId) {
         if (exam.getConstraints() != null) {
             exam.setConstraints(exam.getConstraints().trim());
         }
+
+	if (exam.getDisplayOrder() == null) {
+    		exam.setDisplayOrder(getNextDisplayOrder(exam.getCategoryId()));
+	}
 
         return examRepository.save(exam);
     }
@@ -108,6 +165,40 @@ public List<Exam> getExamsByCategory(@PathVariable Long categoryId) {
     public List<TestCase> getTestCases(@PathVariable Long id) {
         return testCaseRepository.findByExamId(id);
     }
+
+@PatchMapping("/testcases/{id}")
+public TestCase updateTestCase(@PathVariable Long id, @RequestBody TestCase request) {
+    TestCase testCase = testCaseRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("테스트케이스를 찾을 수 없습니다."));
+
+    if (request.getInput() != null) {
+        testCase.setInput(request.getInput().trim());
+    }
+
+    if (request.getExpectedOutput() != null) {
+        testCase.setExpectedOutput(request.getExpectedOutput().trim());
+    }
+
+    if (request.getDescription() != null) {
+        testCase.setDescription(request.getDescription().trim());
+    }
+
+    if (request.getSource() != null && !request.getSource().isBlank()) {
+        testCase.setSource(request.getSource().trim());
+    }
+
+    return testCaseRepository.save(testCase);
+}
+
+@DeleteMapping("/testcases/{id}")
+public String deleteTestCase(@PathVariable Long id) {
+    if (!testCaseRepository.existsById(id)) {
+        throw new RuntimeException("테스트케이스를 찾을 수 없습니다.");
+    }
+
+    testCaseRepository.deleteById(id);
+    return id + "번 테스트케이스가 삭제되었습니다.";
+}
 
     @PostMapping("/exams/{id}/run-tests")
     public Map<String, Object> runTests(
@@ -161,6 +252,10 @@ public List<Exam> getExamsByCategory(@PathVariable Long categoryId) {
             exam.setPoint(request.getPoint());
         }
 
+	if (request.getDisplayOrder() != null) {
+    	exam.setDisplayOrder(request.getDisplayOrder());
+	}
+
         if (request.getSource() != null && !request.getSource().isBlank()) {
             exam.setSource(request.getSource().trim());
         } else {
@@ -173,6 +268,24 @@ public List<Exam> getExamsByCategory(@PathVariable Long categoryId) {
 
         return examRepository.save(exam);
     }
+
+@Transactional
+@PatchMapping("/exams/reorder/bulk")
+public List<Exam> reorderExams(@RequestBody List<Exam> requests) {
+    for (Exam request : requests) {
+        if (request.getId() == null || request.getDisplayOrder() == null) {
+            continue;
+        }
+
+        Exam exam = examRepository.findById(request.getId())
+                .orElseThrow(() -> new RuntimeException("문제를 찾을 수 없습니다."));
+
+        exam.setDisplayOrder(request.getDisplayOrder());
+        examRepository.save(exam);
+    }
+
+    return sortExams(examRepository.findAll());
+}
 
     @Transactional
     @DeleteMapping("/exams/{id}")
@@ -188,60 +301,60 @@ public List<Exam> getExamsByCategory(@PathVariable Long categoryId) {
         return id + "번 문제와 관련 테스트케이스/제출 내역이 삭제되었습니다.";
     }
 
-    @PostMapping("/submissions")
-    public Map<String, Object> submitCode(@RequestBody Submission submission) {
+@PostMapping("/submissions")
+public ResponseEntity<Map<String, Object>> submitCode(@RequestBody Submission submission) {
+    Map<String, Object> result = new HashMap<>();
 
-        if (submission.getStudentId() != null
-                && submission.getExamId() != null
-                && submissionRepository.existsByStudentIdAndExamId(
-                        submission.getStudentId(),
-                        submission.getExamId()
-                )) {
-            Map<String, Object> result = new HashMap<>();
-            result.put("message", "이미 제출한 문제입니다.");
-            result.put("duplicated", true);
-            return result;
+    if (submission.getExamId() == null) {
+        result.put("message", "문제 ID가 없습니다.");
+        result.put("status", "INVALID_REQUEST");
+        return ResponseEntity.badRequest().body(result);
+    }
+
+    Exam exam = examRepository.findById(submission.getExamId())
+            .orElseThrow(() -> new RuntimeException("문제를 찾을 수 없습니다."));
+
+    if (exam.getCategoryId() != null) {
+        ExamCategory category = categoryRepository.findById(exam.getCategoryId())
+                .orElseThrow(() -> new RuntimeException("시험 폴더 정보를 찾을 수 없습니다."));
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (category.getStartTime() != null && now.isBefore(category.getStartTime())) {
+            result.put("message", "시험 시작 전입니다. 제출이 불가능합니다.");
+            result.put("status", "BEFORE_EXAM");
+            result.put("startTime", category.getStartTime());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(result);
         }
 
-        submission.setSubmitTime(LocalDateTime.now());
-        Submission savedSubmission = submissionRepository.save(submission);
+        if (category.getEndTime() != null && now.isAfter(category.getEndTime().plusMinutes(1))) {
+            result.put("message", "시험 시간이 종료되었습니다. 제출이 불가능합니다.");
+            result.put("status", "EXAM_ENDED");
+            result.put("endTime", category.getEndTime());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(result);
+        }
+    }
 
-        AiAnalyzeResponse aiResponse = null;
+    if (submission.getStudentId() != null
+            && submission.getExamId() != null
+            && submissionRepository.existsByStudentIdAndExamId(
+                    submission.getStudentId(),
+                    submission.getExamId()
+            )) {
+        result.put("message", "이미 제출한 문제입니다.");
+        result.put("duplicated", true);
+        return ResponseEntity.ok(result);
+    }
 
-        try {
-            aiResponse = aiService.analyzeSubmission(savedSubmission);
+    submission.setSubmitTime(LocalDateTime.now());
+    Submission savedSubmission = submissionRepository.save(submission);
 
-            if (aiResponse != null) {
-                savedSubmission.setStatus(aiResponse.getErrorType());
-                savedSubmission.setAiSummary(aiResponse.getSummary());
-                savedSubmission.setAiWrongReason(aiResponse.getWrongReason());
-                savedSubmission.setAiSolutionDirection(aiResponse.getSolutionDirection());
-                savedSubmission.setAiImprovement(aiResponse.getImprovementFeedback());
+    AiAnalyzeResponse aiResponse = null;
 
-                int point = examRepository.findById(savedSubmission.getExamId())
-                        .map(exam -> exam.getPoint() != null ? exam.getPoint() : 0)
-                        .orElse(0);
+    try {
+        aiResponse = aiService.analyzeSubmission(savedSubmission);
 
-                if ("accepted".equalsIgnoreCase(aiResponse.getErrorType())) {
-                    savedSubmission.setEarnedPoint(point);
-                } else {
-                    savedSubmission.setEarnedPoint(0);
-                }
-
-                submissionRepository.save(savedSubmission);
-            }
-        } catch (Exception e) {
-            System.out.println("AI 호출 실패, 기본 채점 피드백으로 대체: " + e.getMessage());
-
-            JudgeResult judgeResult = aiService.judgeOnly(
-                    savedSubmission.getExamId(),
-                    savedSubmission.getLanguage(),
-                    savedSubmission.getCode()
-            );
-
-            String fallbackStatus = mapJudgeResultToErrorType(judgeResult);
-            aiResponse = buildOfflineFallbackResponse(fallbackStatus);
-
+        if (aiResponse != null) {
             savedSubmission.setStatus(aiResponse.getErrorType());
             savedSubmission.setAiSummary(aiResponse.getSummary());
             savedSubmission.setAiWrongReason(aiResponse.getWrongReason());
@@ -249,7 +362,7 @@ public List<Exam> getExamsByCategory(@PathVariable Long categoryId) {
             savedSubmission.setAiImprovement(aiResponse.getImprovementFeedback());
 
             int point = examRepository.findById(savedSubmission.getExamId())
-                    .map(exam -> exam.getPoint() != null ? exam.getPoint() : 0)
+                    .map(foundExam -> foundExam.getPoint() != null ? foundExam.getPoint() : 0)
                     .orElse(0);
 
             if ("accepted".equalsIgnoreCase(aiResponse.getErrorType())) {
@@ -260,15 +373,45 @@ public List<Exam> getExamsByCategory(@PathVariable Long categoryId) {
 
             submissionRepository.save(savedSubmission);
         }
+    } catch (Exception e) {
+        System.out.println("AI 호출 실패, 기본 채점 피드백으로 대체: " + e.getMessage());
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("message", "제출 완료");
-        result.put("submission", savedSubmission);
-        result.put("ai_feedback", aiResponse);
+        JudgeResult judgeResult = aiService.judgeOnly(
+                savedSubmission.getExamId(),
+                savedSubmission.getLanguage(),
+                savedSubmission.getCode()
+        );
 
-        return result;
+        String fallbackStatus = mapJudgeResultToErrorType(judgeResult);
+        aiResponse = buildOfflineFallbackResponse(fallbackStatus);
+
+        savedSubmission.setStatus(aiResponse.getErrorType());
+        savedSubmission.setAiSummary(aiResponse.getSummary());
+        savedSubmission.setAiWrongReason(aiResponse.getWrongReason());
+        savedSubmission.setAiSolutionDirection(aiResponse.getSolutionDirection());
+        savedSubmission.setAiImprovement(aiResponse.getImprovementFeedback());
+
+        int point = examRepository.findById(savedSubmission.getExamId())
+                .map(foundExam -> foundExam.getPoint() != null ? foundExam.getPoint() : 0)
+                .orElse(0);
+
+        if ("accepted".equalsIgnoreCase(aiResponse.getErrorType())) {
+            savedSubmission.setEarnedPoint(point);
+        } else {
+            savedSubmission.setEarnedPoint(0);
+        }
+
+        submissionRepository.save(savedSubmission);
     }
 
+    result.put("message", "제출 완료");
+    result.put("submission", savedSubmission);
+    result.put("ai_feedback", aiResponse);
+
+    return ResponseEntity.ok(result);
+}
+
+       
     @GetMapping("/submissions")
     public List<com.example.capstone.dto.SubmissionResponse> getAllSubmissions() {
         return submissionRepository.findAll()
@@ -313,6 +456,26 @@ public List<Exam> getExamsByCategory(@PathVariable Long categoryId) {
             result.put("warningCount", request.getWarningCount() != null ? request.getWarningCount() : 0);
             result.put("results", List.of());
             return result;
+        }
+
+        //시간 만료 체크 로직 시작
+        Long firstExamId = request.getSubmissions().get(0).getExamId();
+        Exam firstExam = examRepository.findById(firstExamId)
+                .orElseThrow(() -> new RuntimeException("문제를 찾을 수 없습니다."));
+
+        ExamCategory category = categoryRepository.findById(firstExam.getCategoryId())
+                .orElseThrow(() -> new RuntimeException("시험 폴더 정보를 찾을 수 없습니다."));
+
+        if (category.getEndTime() != null) {
+            LocalDateTime now = LocalDateTime.now();
+            // 종료 시간보다 1분 이상 늦게 도착하면 제출 거부 (네트워크 지연 고려)
+            if (now.isAfter(category.getEndTime().plusMinutes(1))) {
+                Map<String, Object> result = new HashMap<>();
+                result.put("message", "시험 시간이 종료되었습니다. 제출이 불가능합니다.");
+                result.put("status", "TIMEOUT");
+                result.put("endTime", category.getEndTime());
+                return result; // 여기서 바로 리턴하여 아래 채점 로직을 타지 않게 합니다.
+            }
         }
 
         List<BulkSubmissionResultItem> results = new java.util.ArrayList<>();
@@ -608,5 +771,29 @@ private void applyAiResponseToSubmission(Submission submission, AiAnalyzeRespons
         }
 
         return response;
+    }
+
+@Operation(
+            summary = "학생 이탈 알림 전송",
+            description = "### 실시간 알림 연동 정보\n" +
+                    "- **WebSocket 주소**: `ws://localhost:8080/ws-api` \n" +
+                    "- **구독 경로(Subscribe)**: `/topic/admin` \n" +
+                    "- **설명**: 학생이 시험 화면을 이탈할 때 호출하세요. 호출 시 관리자에게 즉시 메시지가 전송됩니다."
+    )
+    @PostMapping("/exams/warning")
+    public ResponseEntity<?> reportWarning(@RequestBody com.example.capstone.dto.ExamWarningRequest request) {
+        String studentId = request.getStudentId();
+        String studentName = request.getStudentName();
+
+        Map<String, Object> notice = new HashMap<>();
+        notice.put("type", "WARNING");
+        notice.put("studentId", studentId);
+        notice.put("studentName", studentName);
+        notice.put("message", String.format("[이탈 알림] %s(%s) 학생이 시험 창을 벗어났습니다!", studentName, studentId));
+        notice.put("time", LocalDateTime.now());
+
+        messagingTemplate.convertAndSend("/topic/admin", (Object) notice);
+
+        return ResponseEntity.ok(Map.of("message", "관리자에게 실시간 알림을 보냈습니다."));
     }
 }

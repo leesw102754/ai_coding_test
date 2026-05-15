@@ -42,13 +42,27 @@ out/
 /.nb-gradle/
 
 # --- OS ---
-.DS_Store.env
-ai/.env
-ai/.env
+.DS_Store
+Thumbs.db
+
+# --- Environment / Local Config ---
 .env
-.env
+.env.*
+!.env.example
 ai/.env
+frontend/.env
+backend/src/main/resources/application.properties
+backend/src/main/resources/application-local.properties
+**/application-local.properties
+
+# --- Dependencies ---
 node_modules/
+
+# --- Build Outputs ---
 target/
 build/
 dist/
+
+# --- Python ---
+__pycache__/
+*.pyc

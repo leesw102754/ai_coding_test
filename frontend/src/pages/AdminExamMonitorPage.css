@@ -1,0 +1,231 @@
+.admin-monitor-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.admin-monitor-header {
+  margin-bottom: 24px;
+}
+
+.admin-monitor-header h1 {
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.admin-monitor-header p {
+  color: var(--text-secondary);
+}
+
+.monitor-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.monitor-card h2 {
+  margin-bottom: 16px;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.monitor-select {
+  width: 100%;
+  max-width: 420px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  margin-bottom: 20px;
+}
+
+.exam-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.exam-info-item {
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+}
+
+.exam-info-item span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.exam-info-item strong {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.exam-status {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.status-before {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.status-running {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.status-ended {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.status-waiting {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.monitor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.monitor-actions button,
+.clear-btn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--accent-blue);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.monitor-actions button:hover,
+.clear-btn:hover {
+  opacity: 0.9;
+}
+
+.monitor-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.monitor-actions .danger {
+  background: #ef4444;
+}
+
+.warning-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.clear-btn {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.empty-warning {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-muted);
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+}
+
+.warning-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.warning-item {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.warning-item strong {
+  color: #fca5a5;
+}
+
+.warning-item span {
+  margin-left: 4px;
+  color: var(--text-secondary);
+}
+
+.warning-item p {
+  margin: 8px 0;
+  color: var(--text-primary);
+}
+
+.warning-item small {
+  color: var(--text-muted);
+}
+
+.duration-control-box {
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+}
+
+.duration-control-box label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.duration-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.duration-input-row input {
+  width: 120px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.duration-input-row span {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.duration-input-row button {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--accent-blue);
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.duration-control-box p {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}

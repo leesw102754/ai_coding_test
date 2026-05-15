@@ -20,6 +20,7 @@ import {
   reanalyzeAllSubmissionsWithAi,
   getObjectiveQuestions,
   getObjectiveSubmissions,
+  getCategories,
 } from '../api/problemApi';
 import './AdminResultPage.css';
 
@@ -75,6 +76,8 @@ const [languageFilter, setLanguageFilter] = useState('all');
 const [exams, setExams] = useState([]);
 const [objectiveQuestions, setObjectiveQuestions] = useState([]);
 const [objectiveSubmissions, setObjectiveSubmissions] = useState([]);
+const [categories, setCategories] = useState([]);
+const [selectedCategoryId, setSelectedCategoryId] = useState('all');
 const [currentPage, setCurrentPage] = useState(1);
 const pageSize = 10;
 
@@ -106,6 +109,20 @@ useEffect(() => {
   };
 
   fetchExams();
+}, []);
+
+useEffect(() => {
+  const fetchCategories = async () => {
+    try {
+      const data = await getCategories();
+      setCategories(data || []);
+    } catch (err) {
+      console.error('시험 폴더 조회 실패:', err);
+      setCategories([]);
+    }
+  };
+
+  fetchCategories();
 }, []);
 
 useEffect(() => {
@@ -176,34 +193,6 @@ const handleReanalyzeAllWithAi = async () => {
   }
 };
 
-  const filteredSubmissions = useMemo(() => {
-    return submissions.filter((item) => {
-      const matchesSearch =
-        item.studentName?.toLowerCase().includes(search.toLowerCase()) ||
-        item.studentId?.toLowerCase().includes(search.toLowerCase()) ||
-        String(item.examId).includes(search);
-
-      const matchesLanguage =
-        languageFilter === 'all' || item.language === languageFilter;
-
-      return matchesSearch && matchesLanguage;
-    });
-  }, [submissions, search, languageFilter]);
-
-const totalSubmissionPages = Math.max(
-  1,
-  Math.ceil(filteredSubmissions.length / pageSize)
-);
-
-const paginatedSubmissions = useMemo(() => {
-  const startIndex = (currentPage - 1) * pageSize;
-  return filteredSubmissions.slice(startIndex, startIndex + pageSize);
-}, [filteredSubmissions, currentPage]);
-
-useEffect(() => {
-  setCurrentPage(1);
-}, [search, languageFilter]);
-
 const examPointMap = useMemo(() => {
   const map = new Map();
 
@@ -229,26 +218,147 @@ const examTitleMap = useMemo(() => {
   return map;
 }, [exams]);
 
-const maxTotalScore = useMemo(() => {
-  return exams.reduce((sum, exam) => sum + Number(exam.point ?? 0), 0);
+const examCategoryMap = useMemo(() => {
+  const map = new Map();
+
+  exams.forEach((exam) => {
+    map.set(String(exam.id), String(exam.categoryId ?? ''));
+  });
+
+  return map;
 }, [exams]);
 
-const objectiveQuestionPointMap = useMemo(() => {
+const objectiveQuestionCategoryMap = useMemo(() => {
   const map = new Map();
 
   objectiveQuestions.forEach((question) => {
-    map.set(String(question.id), Number(question.point ?? 0));
+    map.set(String(question.id), String(question.categoryId ?? ''));
   });
 
   return map;
 }, [objectiveQuestions]);
 
+const visibleExams = useMemo(() => {
+  if (selectedCategoryId === 'all') {
+    return exams;
+  }
+
+  return exams.filter(
+    (exam) => String(exam.categoryId) === String(selectedCategoryId)
+  );
+}, [exams, selectedCategoryId]);
+
+const visibleObjectiveQuestions = useMemo(() => {
+  if (selectedCategoryId === 'all') {
+    return objectiveQuestions;
+  }
+
+  return objectiveQuestions.filter(
+    (question) => String(question.categoryId) === String(selectedCategoryId)
+  );
+}, [objectiveQuestions, selectedCategoryId]);
+
+const visibleSubmissions = useMemo(() => {
+  if (selectedCategoryId === 'all') {
+    return submissions;
+  }
+
+  return submissions.filter(
+    (submission) =>
+      examCategoryMap.get(String(submission.examId)) === String(selectedCategoryId)
+  );
+}, [submissions, examCategoryMap, selectedCategoryId]);
+
+const visibleObjectiveSubmissions = useMemo(() => {
+  if (selectedCategoryId === 'all') {
+    return objectiveSubmissions;
+  }
+
+  return objectiveSubmissions.filter(
+    (submission) =>
+      objectiveQuestionCategoryMap.get(String(submission.questionId)) ===
+      String(selectedCategoryId)
+  );
+}, [objectiveSubmissions, objectiveQuestionCategoryMap, selectedCategoryId]);
+
+const selectedCategoryTitle = useMemo(() => {
+  if (selectedCategoryId === 'all') {
+    return '전체 시험';
+  }
+
+  const found = categories.find(
+    (category) => String(category.id) === String(selectedCategoryId)
+  );
+
+  return found?.title || `시험 폴더 ${selectedCategoryId}`;
+}, [categories, selectedCategoryId]);
+
+const filteredSubmissions = useMemo(() => {
+  return visibleSubmissions.filter((item) => {
+    const keyword = search.toLowerCase();
+
+    const matchesSearch =
+      item.studentName?.toLowerCase().includes(keyword) ||
+      item.studentId?.toLowerCase().includes(keyword) ||
+      String(item.examId).includes(keyword);
+
+    const matchesLanguage =
+      languageFilter === 'all' || item.language === languageFilter;
+
+    return matchesSearch && matchesLanguage;
+  });
+}, [visibleSubmissions, search, languageFilter]);
+
+const totalSubmissionPages = Math.max(
+  1,
+  Math.ceil(filteredSubmissions.length / pageSize)
+);
+
+const paginatedSubmissions = useMemo(() => {
+  const startIndex = (currentPage - 1) * pageSize;
+  return filteredSubmissions.slice(startIndex, startIndex + pageSize);
+}, [filteredSubmissions, currentPage]);
+
+useEffect(() => {
+  setCurrentPage(1);
+}, [search, languageFilter, selectedCategoryId]);
+
+
+const maxTotalScore = useMemo(() => {
+  return visibleExams.reduce((sum, exam) => sum + Number(exam.point ?? 0), 0);
+}, [visibleExams]);
+
+const objectiveQuestionPointMap = useMemo(() => {
+  const map = new Map();
+
+  visibleObjectiveQuestions.forEach((question) => {
+    map.set(String(question.id), Number(question.point ?? 0));
+  });
+
+  return map;
+}, [visibleObjectiveQuestions]);
+
+const objectiveQuestionTitleMap = useMemo(() => {
+  const map = new Map();
+
+  visibleObjectiveQuestions.forEach((question, index) => {
+    map.set(
+      String(question.id),
+      question.title && question.title.trim() !== ''
+        ? question.title
+        : `객관식 문제 ${index + 1}`
+    );
+  });
+
+  return map;
+}, [visibleObjectiveQuestions]);
+
 const maxObjectiveTotalScore = useMemo(() => {
-  return objectiveQuestions.reduce(
+  return visibleObjectiveQuestions.reduce(
     (sum, question) => sum + Number(question.point ?? 0),
     0
   );
-}, [objectiveQuestions]);
+}, [visibleObjectiveQuestions]);
 
 const maxCombinedTotalScore = maxTotalScore + maxObjectiveTotalScore;
 
@@ -266,7 +376,7 @@ const getSubmissionPointInfo = (submission) => {
 const studentScoreData = useMemo(() => {
   const latestCodingSubmissionMap = new Map();
 
-  submissions.forEach((item) => {
+  visibleSubmissions.forEach((item) => {
     if (!item.studentId || item.examId == null) return;
 
     const key = `${item.studentId}__${item.examId}`;
@@ -282,7 +392,7 @@ const studentScoreData = useMemo(() => {
 
   const latestObjectiveSubmissionMap = new Map();
 
-  objectiveSubmissions.forEach((item) => {
+  visibleObjectiveSubmissions.forEach((item) => {
     if (!item.studentId || item.questionId == null) return;
 
     const key = `${item.studentId}__${item.questionId}`;
@@ -396,36 +506,39 @@ const studentScoreData = useMemo(() => {
       return String(a.studentName).localeCompare(String(b.studentName), 'ko');
     });
 }, [
-  submissions,
-  objectiveSubmissions,
+  visibleSubmissions,
+  visibleObjectiveSubmissions,
   examPointMap,
   objectiveQuestionPointMap,
   maxCombinedTotalScore,
 ]);
 
+
   const stats = useMemo(() => {
   const uniqueStudentSet = new Set();
 
-  submissions.forEach((s) => {
+  visibleSubmissions.forEach((s) => {
     if (s.studentId) uniqueStudentSet.add(s.studentId);
   });
 
-  objectiveSubmissions.forEach((s) => {
+  visibleObjectiveSubmissions.forEach((s) => {
     if (s.studentId) uniqueStudentSet.add(s.studentId);
   });
 
-  const languageCount = submissions.reduce((acc, cur) => {
+  const languageCount = visibleSubmissions.reduce((acc, cur) => {
     const lang = cur.language || 'unknown';
     acc[lang] = (acc[lang] || 0) + 1;
     return acc;
   }, {});
 
-  const languageChartData = Object.entries(languageCount).map(([name, value]) => ({
-    name,
-    value,
-  }));
+  const languageChartData = Object.entries(languageCount).map(
+    ([name, value]) => ({
+      name,
+      value,
+    })
+  );
 
-  const timeBucketCount = submissions.reduce((acc, cur) => {
+  const timeBucketCount = visibleSubmissions.reduce((acc, cur) => {
     if (!cur.submitTime) return acc;
 
     const date = new Date(cur.submitTime);
@@ -452,17 +565,18 @@ const studentScoreData = useMemo(() => {
     }));
 
   return {
-    totalSubmissions: submissions.length + objectiveSubmissions.length,
-    codingSubmissionCount: submissions.length,
-    objectiveSubmissionCount: objectiveSubmissions.length,
+    totalSubmissions:
+      visibleSubmissions.length + visibleObjectiveSubmissions.length,
+    codingSubmissionCount: visibleSubmissions.length,
+    objectiveSubmissionCount: visibleObjectiveSubmissions.length,
     uniqueStudents: uniqueStudentSet.size,
     languageChartData,
     hourlyChartData,
   };
-}, [submissions, objectiveSubmissions]);
+}, [visibleSubmissions, visibleObjectiveSubmissions]);
 
 const feedbackStatusData = useMemo(() => {
-  const counter = submissions.reduce(
+  const counter = visibleSubmissions.reduce(
     (acc, cur) => {
       const status = normalizeSubmissionStatus(cur);
 
@@ -481,43 +595,97 @@ const feedbackStatusData = useMemo(() => {
     { name: '정답', value: counter.accepted },
     { name: '오답/기타', value: counter.notAccepted },
   ].filter((item) => item.value > 0);
-}, [submissions]);
+}, [visibleSubmissions]);
 
-  const problemAccuracyData = useMemo(() => {
-    const grouped = submissions.reduce((acc, cur) => {
-      const examId = cur.examId;
-      if (examId == null) return acc;
+const problemAccuracyData = useMemo(() => {
+  const grouped = visibleSubmissions.reduce((acc, cur) => {
+    const examId = cur.examId;
+    if (examId == null) return acc;
 
-      if (!acc[examId]) {
-        acc[examId] = {
-          examId,
-          total: 0,
-          correct: 0,
-        };
-      }
+    if (!acc[examId]) {
+      acc[examId] = {
+        examId,
+        total: 0,
+        correct: 0,
+      };
+    }
 
-      acc[examId].total += 1;
+    acc[examId].total += 1;
 
-const status = normalizeSubmissionStatus(cur);
-if (status === 'accepted') {
-  acc[examId].correct += 1;
-}
+    const status = normalizeSubmissionStatus(cur);
+    if (status === 'accepted') {
+      acc[examId].correct += 1;
+    }
 
-      return acc;
-    }, {});
+    return acc;
+  }, {});
 
-    return Object.values(grouped)
-      .map((item) => ({
-        examId: item.examId,
-        total: item.total,
-        correct: item.correct,
-        rate: item.total === 0 ? 0 : Math.round((item.correct / item.total) * 100),
-        label: `${item.examId}번`,
-      }))
-      .sort((a, b) => Number(a.examId) - Number(b.examId));
-  }, [submissions]);
+  return Object.values(grouped)
+    .map((item) => ({
+      examId: item.examId,
+      total: item.total,
+      correct: item.correct,
+      rate:
+        item.total === 0
+          ? 0
+          : Math.round((item.correct / item.total) * 100),
+      label: `${item.examId}번`,
+    }))
+    .sort((a, b) => Number(a.examId) - Number(b.examId));
+}, [visibleSubmissions]);
 
-  const aiWeaknessAnalysis = useMemo(() => {
+const objectiveAccuracyData = useMemo(() => {
+  const grouped = new Map();
+
+  visibleObjectiveSubmissions.forEach((item) => {
+    if (item.questionId == null) return;
+
+    const questionKey = String(item.questionId);
+
+    if (!grouped.has(questionKey)) {
+      grouped.set(questionKey, {
+        questionId: item.questionId,
+        title:
+          objectiveQuestionTitleMap.get(questionKey) ||
+          `객관식 문제 ${item.questionId}`,
+        total: 0,
+        correct: 0,
+        wrong: 0,
+        rate: 0,
+      });
+    }
+
+    const row = grouped.get(questionKey);
+
+    const isCorrect =
+      item.correct === true ||
+      item.isCorrect === true ||
+      String(item.correct).toLowerCase() === 'true';
+
+    row.total += 1;
+
+    if (isCorrect) {
+      row.correct += 1;
+    } else {
+      row.wrong += 1;
+    }
+  });
+
+  return Array.from(grouped.values())
+    .map((row) => ({
+      ...row,
+      rate:
+        row.total === 0
+          ? 0
+          : Math.round((row.correct / row.total) * 100),
+    }))
+    .sort((a, b) => {
+      if (a.rate !== b.rate) return a.rate - b.rate;
+      return b.total - a.total;
+    });
+}, [visibleObjectiveSubmissions, objectiveQuestionTitleMap]);
+
+const aiWeaknessAnalysis = useMemo(() => {
   const counts = {
     accepted: 0,
     logic: 0,
@@ -529,7 +697,7 @@ if (status === 'accepted') {
     unknown: 0,
   };
 
-  submissions.forEach((item) => {
+  visibleSubmissions.forEach((item) => {
     const status = normalizeSubmissionStatus(item);
     counts[status] = (counts[status] || 0) + 1;
   });
@@ -542,7 +710,7 @@ if (status === 'accepted') {
   const weakCount = errorEntries.length > 0 ? errorEntries[0][1] : 0;
   const totalWrong = errorEntries.reduce((sum, [, value]) => sum + value, 0);
 
-  if (submissions.length === 0) {
+  if (visibleSubmissions.length === 0) {
     return {
       counts,
       weakType: null,
@@ -550,7 +718,8 @@ if (status === 'accepted') {
       weakCount: 0,
       totalWrong: 0,
       summary: '아직 제출 데이터가 없어 AI 취약 유형 분석을 대기 중입니다.',
-      guide: '학생 제출이 발생하면 오류 유형별로 자동 분석되어 가장 많이 발생한 취약 유형을 표시합니다.',
+      guide:
+        '학생 제출이 발생하면 오류 유형별로 자동 분석되어 가장 많이 발생한 취약 유형을 표시합니다.',
     };
   }
 
@@ -567,14 +736,15 @@ if (status === 'accepted') {
     guide:
       totalWrong === 0
         ? '현재 정답 비율이 높습니다. 다음 단계에서는 난이도 높은 테스트케이스를 추가해 검증하면 좋습니다.'
-        : AI_ERROR_GUIDE[weakType] || '상세 제출 데이터를 기준으로 추가 확인이 필요합니다.',
+        : AI_ERROR_GUIDE[weakType] ||
+          '상세 제출 데이터를 기준으로 추가 확인이 필요합니다.',
   };
-}, [submissions]);
+}, [visibleSubmissions]);
 
 const languageAccuracyData = useMemo(() => {
   const grouped = new Map();
 
-  submissions.forEach((item) => {
+  visibleSubmissions.forEach((item) => {
     const language = item.language || 'unknown';
 
     if (!grouped.has(language)) {
@@ -600,18 +770,19 @@ const languageAccuracyData = useMemo(() => {
   return Array.from(grouped.values())
     .map((row) => ({
       ...row,
-      rate: row.total === 0 ? 0 : Math.round((row.accepted / row.total) * 100),
+      rate:
+        row.total === 0 ? 0 : Math.round((row.accepted / row.total) * 100),
     }))
     .sort((a, b) => {
       if (b.rate !== a.rate) return b.rate - a.rate;
       return b.total - a.total;
     });
-}, [submissions]);
+}, [visibleSubmissions]);
 
 const problemErrorTypeData = useMemo(() => {
   const grouped = new Map();
 
-  submissions.forEach((item) => {
+  visibleSubmissions.forEach((item) => {
     if (item.examId == null) return;
 
     const examKey = String(item.examId);
@@ -656,7 +827,9 @@ const problemErrorTypeData = useMemo(() => {
       return {
         ...row,
         correctRate:
-          row.total === 0 ? 0 : Math.round((row.accepted / row.total) * 100),
+          row.total === 0
+            ? 0
+            : Math.round((row.accepted / row.total) * 100),
         mainErrorKey,
         mainErrorCount,
         mainErrorLabel:
@@ -669,7 +842,8 @@ const problemErrorTypeData = useMemo(() => {
       if (b.wrong !== a.wrong) return b.wrong - a.wrong;
       return a.correctRate - b.correctRate;
     });
-}, [submissions, examTitleMap]);
+}, [visibleSubmissions, examTitleMap]);
+
 
 const advancedSummaryData = useMemo(() => {
   const topStudent = studentScoreData[0];
@@ -690,6 +864,69 @@ bestLanguage:
     : '정답 데이터 없음',
   };
 }, [studentScoreData, problemErrorTypeData, languageAccuracyData]);
+
+const adminInsightData = useMemo(() => {
+  const studentCount = studentScoreData.length;
+
+  const averageScore =
+    studentCount === 0
+      ? 0
+      : Math.round(
+          studentScoreData.reduce((sum, row) => sum + Number(row.totalScore || 0), 0) /
+            studentCount
+        );
+
+  const averageRate =
+    studentCount === 0
+      ? 0
+      : Math.round(
+          studentScoreData.reduce((sum, row) => sum + Number(row.scoreRate || 0), 0) /
+            studentCount
+        );
+
+  const averageCodingScore =
+    studentCount === 0
+      ? 0
+      : Math.round(
+          studentScoreData.reduce((sum, row) => sum + Number(row.codingScore || 0), 0) /
+            studentCount
+        );
+
+  const averageObjectiveScore =
+    studentCount === 0
+      ? 0
+      : Math.round(
+          studentScoreData.reduce((sum, row) => sum + Number(row.objectiveScore || 0), 0) /
+            studentCount
+        );
+
+  const hardestObjective = objectiveAccuracyData.find((item) => item.total > 0);
+
+  const summary =
+    studentCount === 0
+      ? `${selectedCategoryTitle} 기준으로 아직 제출 데이터가 없습니다.`
+      : `${selectedCategoryTitle} 기준 총 ${studentCount}명이 응시했고, 평균 점수는 ${averageScore}점입니다. 코딩 평균은 ${averageCodingScore}점, 객관식 평균은 ${averageObjectiveScore}점입니다.`;
+
+  const guide =
+    hardestObjective && hardestObjective.rate < 100
+      ? `객관식에서는 "${hardestObjective.title}" 문항의 정답률이 ${hardestObjective.rate}%로 가장 낮습니다.`
+      : '현재 기준으로 특별히 낮은 객관식 정답률 문항은 없습니다.';
+
+  return {
+    studentCount,
+    averageScore,
+    averageRate,
+    averageCodingScore,
+    averageObjectiveScore,
+    summary,
+    guide,
+  };
+}, [
+  studentScoreData,
+  objectiveAccuracyData,
+  selectedCategoryTitle,
+]);
+
 
   const formatDateTime = (value) => {
     if (!value) return '-';
@@ -720,7 +957,27 @@ return (
       </button>
     </div>
 
+<div className="admin-filter-card">
+  <div>
+    <h3>시험 폴더 필터</h3>
+    <p>선택한 시험 폴더 기준으로 결과를 분석합니다.</p>
+  </div>
+
+  <select
+    value={selectedCategoryId}
+    onChange={(e) => setSelectedCategoryId(e.target.value)}
+  >
+    <option value="all">전체 시험</option>
+    {categories.map((category) => (
+      <option key={category.id} value={category.id}>
+        {category.title}
+      </option>
+    ))}
+  </select>
+</div>
+
 <div className="summary-grid">
+
   <div className="summary-card">
     <span className="summary-label">전체 제출 수</span>
     <strong className="summary-value">{stats.totalSubmissions}</strong>
@@ -739,6 +996,32 @@ return (
   <div className="summary-card">
     <span className="summary-label">객관식 제출 수</span>
     <strong className="summary-value">{stats.objectiveSubmissionCount}</strong>
+  </div>
+</div>
+
+<div className="admin-insight-card">
+  <div>
+    <span className="ai-analysis-badge">Admin Insight</span>
+    <h3>관리자 요약 인사이트</h3>
+    <p>{adminInsightData.summary}</p>
+    <p className="ai-analysis-guide">{adminInsightData.guide}</p>
+  </div>
+
+  <div className="admin-insight-metrics">
+    <div>
+      <span>평균 점수</span>
+      <strong>{adminInsightData.averageScore}점</strong>
+    </div>
+
+    <div>
+      <span>평균 달성률</span>
+      <strong>{adminInsightData.averageRate}%</strong>
+    </div>
+
+    <div>
+      <span>응시 학생</span>
+      <strong>{adminInsightData.studentCount}명</strong>
+    </div>
   </div>
 </div>
 
@@ -799,25 +1082,25 @@ return (
 	</tr>
         </thead>
         <tbody>
-          {studentScoreData.map((row) => (
-            <tr key={row.studentId}>
-              <td>{row.studentName}</td>
-              <td>{row.studentId}</td>
-<td>
-  <strong>{row.codingScore}</strong> / {maxTotalScore}점
-</td>
-<td>
-  <strong>{row.objectiveScore}</strong> / {maxObjectiveTotalScore}점
-</td>
-<td>
-  <strong>{row.totalScore}</strong> / {row.maxScore}점
-</td>
-<td>{row.scoreRate}%</td>
-<td>
-  {row.acceptedCount} / {row.submittedCount}
-</td>
-            </tr>
-          ))}
+         {studentScoreData.map((row) => (
+  <tr key={row.studentId}>
+    <td>{row.studentName}</td>
+    <td>{row.studentId}</td>
+    <td>
+      <strong>{row.codingScore}</strong> / {maxTotalScore}점
+    </td>
+    <td>
+      <strong>{row.objectiveScore}</strong> / {maxObjectiveTotalScore}점
+    </td>
+    <td>
+      <strong>{row.totalScore}</strong> / {row.maxScore}점
+    </td>
+    <td>{row.scoreRate}%</td>
+    <td>
+      {row.acceptedCount} / {row.submittedCount}
+    </td>
+  </tr>
+))}
         </tbody>
       </table>
     </div>
@@ -925,6 +1208,103 @@ return (
       </div>
     )}
   </div>
+<div className="analysis-table-card objective-accuracy-card">
+  <div className="analysis-table-header">
+    <div>
+      <h3>객관식 문제별 정답률</h3>
+      <p>객관식 문제별 제출 수와 정답률을 확인합니다.</p>
+    </div>
+  </div>
+
+  {objectiveAccuracyData.length === 0 ? (
+    <div className="analysis-empty">객관식 제출 데이터가 없습니다.</div>
+  ) : (
+    <div className="analysis-table-wrap">
+      <table className="analysis-table">
+        <thead>
+          <tr>
+            <th>객관식 문제</th>
+            <th>제출</th>
+            <th>정답</th>
+            <th>오답</th>
+            <th>정답률</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {objectiveAccuracyData.map((row) => (
+            <tr key={row.questionId}>
+              <td>{row.title}</td>
+              <td>{row.total}</td>
+              <td>{row.correct}</td>
+              <td>{row.wrong}</td>
+              <td>{row.rate}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</div>
+
+<div className="analysis-table-card admin-check-card">
+  <div className="analysis-table-header">
+    <div>
+      <h3>관리자 체크 포인트</h3>
+      <p>현재 시험 결과를 기준으로 확인할 항목을 정리합니다.</p>
+    </div>
+  </div>
+
+  <div className="admin-check-list">
+    <div className="admin-check-item">
+      <span className="check-label">선택 시험</span>
+      <strong>{selectedCategoryTitle}</strong>
+      <p>현재 필터 기준으로 결과를 분석 중입니다.</p>
+    </div>
+
+    <div className="admin-check-item">
+      <span className="check-label">응시 현황</span>
+      <strong>{adminInsightData.studentCount}명 응시</strong>
+      <p>
+        총 제출 {stats.totalSubmissions}건 · 코딩 {stats.codingSubmissionCount}건 ·
+        객관식 {stats.objectiveSubmissionCount}건
+      </p>
+    </div>
+
+    <div className="admin-check-item">
+      <span className="check-label">평균 성취도</span>
+      <strong>{adminInsightData.averageRate}%</strong>
+      <p>
+        평균 점수 {adminInsightData.averageScore}점 기준으로 시험 난이도를 확인하세요.
+      </p>
+    </div>
+
+    <div className="admin-check-item">
+      <span className="check-label">주의 항목</span>
+      <strong>
+        {problemErrorTypeData[0]?.wrong > 0
+          ? problemErrorTypeData[0].title
+          : objectiveAccuracyData[0]?.rate < 100
+          ? objectiveAccuracyData[0].title
+          : '특이사항 없음'}
+      </strong>
+      <p>
+        {problemErrorTypeData[0]?.wrong > 0
+          ? `코딩 문제에서 오답 ${problemErrorTypeData[0].wrong}건이 발생했습니다.`
+          : objectiveAccuracyData[0]?.rate < 100
+          ? `객관식 정답률이 ${objectiveAccuracyData[0].rate}%인 문항이 있습니다.`
+          : '현재 기준으로 큰 취약 문항은 없습니다.'}
+      </p>
+    </div>
+
+    <div className="admin-check-item">
+      <span className="check-label">AI 분석</span>
+      <strong>{aiWeaknessAnalysis.weakTypeLabel}</strong>
+      <p>{aiWeaknessAnalysis.guide}</p>
+    </div>
+  </div>
+</div>
+
 </div>
 
       <div className="chart-grid">

@@ -1,3 +1,4 @@
+import AdminExamMonitorPage from './pages/AdminExamMonitorPage';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProblemProvider } from './context/ProblemContext';
@@ -18,6 +19,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ExamPage from './pages/ExamPage';
 import ObjectiveSolvePage from './pages/ObjectiveSolvePage';
+import TutorialPage from './pages/TutorialPage';
 
 export default function App() {
   return (
@@ -72,6 +74,8 @@ function AppRoutes() {
             <Route path="/admin/coding" element={<AdminCodingPage />} />
             <Route path="/admin/results" element={<AdminResultPage />} />
             <Route path="/admin/exams" element={<AdminExamManagePage />} />
+	    <Route path="/admin/exam-monitor" element={<AdminExamMonitorPage />} />
+	    <Route path="/tutorial" element={<TutorialPage />} />
           </>
         )}
 

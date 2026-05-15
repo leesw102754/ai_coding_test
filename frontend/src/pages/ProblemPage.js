@@ -11,6 +11,7 @@ import {
   getSubmissionsByStudentId,
   getAllSubmissions,
   runExamTestCases,
+  sendExamWarning,
 } from '../api/problemApi';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { toast } from 'react-toastify';
@@ -23,16 +24,75 @@ const LANGUAGES = [
   { id: 'cpp', label: 'C++' },
 ];
 
+const normalizeRunErrorType = (status, hint, stderr = '', compileOutput = '') => {
+  const text = `${status || ''} ${hint || ''} ${stderr || ''} ${compileOutput || ''}`.toLowerCase();
+
+  if (text.includes('accepted')) {
+    return { type: 'accepted', label: '정답' };
+  }
+
+  if (
+    text.includes('compile') ||
+    text.includes('syntax') ||
+    text.includes('compilation')
+  ) {
+    return { type: 'compile', label: '컴파일/문법 오류' };
+  }
+
+  if (
+    text.includes('index') ||
+    text.includes('out of range') ||
+    text.includes('out of bounds') ||
+    text.includes('arrayindex')
+  ) {
+    return { type: 'index', label: '인덱스 오류' };
+  }
+
+  if (
+    text.includes('runtime') ||
+    text.includes('type_error') ||
+    text.includes('typeerror') ||
+    text.includes('timeout') ||
+    text.includes('memory') ||
+    text.includes('exception')
+  ) {
+    return { type: 'runtime', label: '실행 오류' };
+  }
+
+  return { type: 'logic', label: '로직 오류' };
+};
+
 export default function ProblemPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const fromCategoryId = location.state?.fromCategoryId;
-  const { problems } = useProblem();
-  const { theme } = useTheme();
-  const { user } = useAuth();
+const fromCategoryId = location.state?.fromCategoryId;
+const storedCategoryId = sessionStorage.getItem(`problem-${id}-categoryId`);
 
-  const problem = problems.find((p) => p.id === parseInt(id, 10));
+const { problems } = useProblem();
+const { theme } = useTheme();
+const { user } = useAuth();
+
+const problem = problems.find((p) => p.id === parseInt(id, 10));
+
+const backCategoryId =
+  fromCategoryId ||
+  problem?.categoryId ||
+  storedCategoryId;
+
+const goBackToExamList = useCallback(() => {
+  if (backCategoryId) {
+    navigate(`/exam/${backCategoryId}`, { replace: true });
+  } else {
+    navigate('/', { replace: true });
+  }
+}, [backCategoryId, navigate]);
+
+useEffect(() => {
+  if (backCategoryId) {
+    sessionStorage.setItem(`problem-${id}-categoryId`, backCategoryId);
+  }
+}, [id, backCategoryId]);
 
   const [language, setLanguage] = useState('javascript');
   const [code, setCode] = useState('');
@@ -53,12 +113,69 @@ export default function ProblemPage() {
   const [testCases, setTestCases] = useState([]);
   const [testCaseLoading, setTestCaseLoading] = useState(false);
 
-  const timerRef = useRef(null);
-  const warningRef = useRef(false);
-  const submitLockRef = useRef(false);
+const timerRef = useRef(null);
+const warningRef = useRef(false);
+const submitLockRef = useRef(false);
+const lastWarningSentAtRef = useRef(0);
 
   const [showResultModal, setShowResultModal] = useState(false);
   const [submissionSummary, setSubmissionSummary] = useState(null);
+
+const getCurrentStudentInfo = useCallback(() => {
+  let savedUser = {};
+
+  try {
+    savedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+  } catch (err) {
+    savedUser = {};
+  }
+
+  return {
+    studentId: user?.studentId || savedUser.studentId || 'unknown',
+    studentName:
+      user?.name ||
+      user?.studentName ||
+      savedUser.name ||
+      savedUser.studentName ||
+      'unknown',
+  };
+}, [user]);
+
+const reportWarningToServer = useCallback(
+  async (reason = 'exam_screen_exit') => {
+    const now = Date.now();
+
+    // visibilitychange + blur가 동시에 여러 번 발생하는 것 방지
+    if (now - lastWarningSentAtRef.current < 3000) {
+      return;
+    }
+
+    lastWarningSentAtRef.current = now;
+
+    const { studentId, studentName } = getCurrentStudentInfo();
+
+    try {
+      await sendExamWarning({
+        studentId,
+        studentName,
+      });
+
+      console.log('이탈 알림 전송 완료:', reason);
+    } catch (err) {
+      console.error('이탈 알림 전송 실패:', err);
+    }
+  },
+  [getCurrentStudentInfo]
+);
+
+const raiseExamWarning = useCallback(
+  (reason) => {
+    setWarningCount((count) => count + 1);
+    setWarningVisible(true);
+    reportWarningToServer(reason);
+  },
+  [reportWarningToServer]
+);
 
 useEffect(() => {
   const checkAlreadySubmitted = async () => {
@@ -76,11 +193,7 @@ if (alreadySubmitted) {
   submitLockRef.current = true;
   toast.error('이미 제출한 문제입니다.');
 
-  if (fromCategoryId) {
-    navigate(`/exam/${fromCategoryId}`, { replace: true });
-  } else {
-    navigate('/', { replace: true });
-  }
+  goBackToExamList();
 }
     } catch (err) {
       console.error('제출 여부 확인 실패:', err);
@@ -88,7 +201,7 @@ if (alreadySubmitted) {
   };
 
   checkAlreadySubmitted();
-}, [id, user?.studentId, navigate, fromCategoryId]);
+}, [id, user?.studentId, goBackToExamList]);
 
   useEffect(() => {
     const fetchTestCases = async () => {
@@ -164,11 +277,10 @@ if (alreadySubmitted) {
 
       setIsFullscreen(isFull);
 
-      if (examStarted && !isFull && !warningRef.current) {
-        warningRef.current = true;
-        setWarningCount((c) => c + 1);
-        setWarningVisible(true);
-      }
+if (examStarted && !isFull && !warningRef.current) {
+  warningRef.current = true;
+  raiseExamWarning('fullscreen_exit');
+}
     };
 
     document.addEventListener('fullscreenchange', handleFSChange);
@@ -182,21 +294,19 @@ if (alreadySubmitted) {
       document.removeEventListener('mozfullscreenchange', handleFSChange);
       document.removeEventListener('MSFullscreenChange', handleFSChange);
     };
-  }, [examStarted]);
+}, [examStarted, raiseExamWarning]);
 
   useEffect(() => {
     if (!examStarted) return;
 
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        setWarningCount((c) => c + 1);
-        setWarningVisible(true);
-      }
+if (document.hidden) {
+  raiseExamWarning('tab_hidden');
+}
     };
 
-    const handleBlur = () => {
-      setWarningCount((c) => c + 1);
-      setWarningVisible(true);
+const handleBlur = () => {
+  raiseExamWarning('window_blur');
     };
 
     const handleKeyDown = (e) => {
@@ -208,8 +318,7 @@ if (alreadySubmitted) {
       ) {
         e.preventDefault();
         e.stopPropagation();
-        setWarningCount((c) => c + 1);
-        setWarningVisible(true);
+	raiseExamWarning('shortcut_exit');
       }
     };
 
@@ -228,7 +337,7 @@ if (alreadySubmitted) {
       document.removeEventListener('keydown', handleKeyDown, true);
       document.removeEventListener('contextmenu', handleContextMenu);
     };
-  }, [examStarted]);
+}, [examStarted, raiseExamWarning]);
 
   const startExam = async () => {
     try {
@@ -263,15 +372,15 @@ if (alreadySubmitted) {
     setExitConfirm(true);
   };
 
-  const confirmExit = () => {
-    setExamStarted(false);
-    setExitConfirm(false);
-    setWarningVisible(false);
-    setWarningCount(0);
-    clearInterval(timerRef.current);
-    exitFullscreen();
-    navigate('/');
-  };
+const confirmExit = () => {
+  setExamStarted(false);
+  setExitConfirm(false);
+  setWarningVisible(false);
+  setWarningCount(0);
+  clearInterval(timerRef.current);
+  exitFullscreen();
+  goBackToExamList();
+};
 
   const cancelExit = () => {
     setExitConfirm(false);
@@ -323,9 +432,15 @@ if (alreadySubmitted) {
     });
 
     const failedCases = res.failedCases || [];
+    const errorInfo = normalizeRunErrorType(
+  res.status,
+  res.errorTypeHint,
+  res.stderr,
+  res.compileOutput
+);
 
-    if (res.status === 'accepted') {
-      setOutput('공개 테스트케이스를 모두 통과했습니다.');
+   if (String(res.status || '').toLowerCase() === 'accepted') {
+  setOutput('테스트케이스 실행 결과: accepted\n오류 유형: 정답\n공개 테스트케이스를 모두 통과했습니다.');
 
       setTestResults(
         testCases.map((tc, i) => ({
@@ -342,9 +457,11 @@ if (alreadySubmitted) {
     }
 
     setOutput(
-      `테스트케이스 실행 결과: ${res.status}\n` +
-        (res.stderr ? `오류 메시지:\n${res.stderr}` : '')
-    );
+  `테스트케이스 실행 결과: ${res.status}\n` +
+    `오류 유형: ${errorInfo.label}\n` +
+    (res.compileOutput ? `컴파일 출력:\n${res.compileOutput}\n` : '') +
+    (res.stderr ? `오류 메시지:\n${res.stderr}` : '')
+);
 
     setTestResults(
       testCases.map((tc, i) => {
@@ -359,7 +476,9 @@ if (alreadySubmitted) {
           expected: tc.expectedOutput || tc.expected,
           actual: failed ? failed.actual_output || failed.actualOutput || '' : '-',
           passed: failed ? false : 'unknown',
-          reason: failed ? failed.reason : '채점 중단 이후 미확인',
+          reason: failed
+  	  ? `${errorInfo.label} - ${failed.reason || '테스트케이스 실패'}`
+  	  : '채점 중단 이후 미확인',
         };
       })
     );
@@ -455,6 +574,8 @@ const handleSubmit = async () => {
 
     setHasSubmitted(true);
     setOutput('제출이 완료되었습니다. 아래 결과를 확인하세요.');
+    setActiveTab('testcases');
+
 
     // =========================
     // 전체 제출 기반 랭킹 계산
@@ -567,18 +688,66 @@ const handleSubmit = async () => {
     });
 
     setShowResultModal(true);
-  } catch (err) {
-    console.error(err);
+} catch (err) {
+  console.error(err);
 
+  const serverStatus = err.response?.data?.status;
+  const serverMessage =
+    err.response?.data?.message || '제출 실패';
+
+  if (serverStatus === 'BEFORE_EXAM') {
     submitLockRef.current = false;
 
     setSubmitResult({
       success: false,
-      message:
-        err.response?.data?.message ||
-        '제출 실패',
+      message: serverMessage,
     });
-  } finally {
+
+    setOutput(serverMessage);
+    toast.error(serverMessage);
+
+    setExamStarted(false);
+    clearInterval(timerRef.current);
+    exitFullscreen();
+
+    goBackToExamList();
+    return;
+  }
+
+  if (serverStatus === 'EXAM_ENDED' || serverStatus === 'TIMEOUT') {
+    submitLockRef.current = false;
+
+    setSubmitResult({
+      success: false,
+      message: serverMessage,
+    });
+
+    setOutput(serverMessage);
+    toast.error(serverMessage);
+
+    setExamStarted(false);
+    clearInterval(timerRef.current);
+    exitFullscreen();
+
+    if (backCategoryId) {
+      navigate(`/results?categoryId=${backCategoryId}`, { replace: true });
+    } else {
+      navigate('/results', { replace: true });
+    }
+
+    return;
+  }
+
+  submitLockRef.current = false;
+
+  setSubmitResult({
+    success: false,
+    message: serverMessage,
+  });
+
+  setOutput(serverMessage);
+  toast.error(serverMessage);
+} finally {
     setIsRunning(false);
     setIsSubmitting(false);
   }
@@ -587,7 +756,7 @@ const handleSubmit = async () => {
     return (
       <div className="problem-not-found">
         <h2>문제를 찾을 수 없습니다.</h2>
-        <button onClick={() => navigate('/')}>목록으로 돌아가기</button>
+        <button onClick={goBackToExamList}>목록으로 돌아가기</button>
       </div>
     );
   }
@@ -601,16 +770,14 @@ const handleSubmit = async () => {
     어려움: { label: '어려움', cls: 'tag-hard' },
   };
 
-  const closeResultModal = () => {
+const closeResultModal = () => {
   setShowResultModal(false);
-
   setExamStarted(false);
 
   clearInterval(timerRef.current);
-
   exitFullscreen();
 
-  navigate('/');
+  goBackToExamList();
 };
 
   return (
@@ -661,9 +828,9 @@ const handleSubmit = async () => {
       <div className="exam-header">
         <div className="exam-header-left">
           {!examStarted ? (
-            <button className="btn-back" onClick={() => navigate('/')}>
-              목록
-            </button>
+            <button className="btn-back" onClick={goBackToExamList}>
+  		목록
+	    </button>
           ) : (
             <button className="btn-back exam-exit" onClick={handleExitExam}>
               시험 종료

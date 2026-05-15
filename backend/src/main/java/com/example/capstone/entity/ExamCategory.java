@@ -18,6 +18,10 @@ public class ExamCategory {
 
     private LocalDateTime createdAt;
 
+    private LocalDateTime startTime; // 시험 시작 시간
+    private LocalDateTime endTime;   // 시험 종료 시간
+    private Integer durationMinutes; // 시험 제한 시간
+
     public ExamCategory() {
     }
 
@@ -48,5 +52,29 @@ public class ExamCategory {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(LocalDateTime startTime) {
+        this.startTime = startTime;
+    }
+
+    public LocalDateTime getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(LocalDateTime endTime) {
+        this.endTime = endTime;
+    }
+
+    public Integer getDurationMinutes() {
+        return durationMinutes;
+    }
+
+    public void setDurationMinutes(Integer durationMinutes) {
+        this.durationMinutes = durationMinutes;
     }
 }

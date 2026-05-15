@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   getSubmissionsByStudentId,
+  getProblems,
   getObjectiveQuestions,
-  getObjectiveSubmissions,
+  getObjectiveQuestionsByCategoryId,
+  getObjectiveSubmissionsByStudentId,
 } from '../api/problemApi';
-import { useProblem } from '../context/ProblemContext';
 import './ResultsPage.css';
 import {
   ResponsiveContainer,
@@ -21,61 +23,111 @@ import {
 } from 'recharts';
 
 export default function ResultsPage() {
+  const [searchParams] = useSearchParams();
+  const selectedCategoryId = searchParams.get('categoryId') || '';
+  const [categoryProblems, setCategoryProblems] = useState([]);
 
-const { user } = useAuth();
+  const { user } = useAuth();
+
+const savedUser = useMemo(() => {
+  try {
+    return JSON.parse(sessionStorage.getItem('user') || '{}');
+  } catch (err) {
+    return {};
+  }
+}, []);
+
+const effectiveStudentId = user?.studentId || savedUser.studentId;
+const effectiveStudentName =
+  user?.name ||
+  user?.studentName ||
+  savedUser.name ||
+  savedUser.studentName;
+
 const [mySubmissions, setMySubmissions] = useState([]);
 const [objectiveQuestions, setObjectiveQuestions] = useState([]);
 const [myObjectiveSubmissions, setMyObjectiveSubmissions] = useState([]);
 const [loadingResults, setLoadingResults] = useState(true);
+const [resultTypeFilter, setResultTypeFilter] = useState('all');
+
 useEffect(() => {
   const fetchMySubmissions = async () => {
-    if (!user?.studentId) {
-      setMySubmissions([]);
-      setObjectiveQuestions([]);
-      setMyObjectiveSubmissions([]);
-      setLoadingResults(false);
-      return;
-    }
-
-    try {
-      setLoadingResults(true);
-
-const [codingData, objectiveQuestionData, objectiveSubmissionData] =
-  await Promise.all([
-    getSubmissionsByStudentId(user.studentId),
-    getObjectiveQuestions(),
-    getObjectiveSubmissions(),
-  ]);
-
-const filteredObjectiveSubmissions = (objectiveSubmissionData || []).filter(
-  (item) => {
-    const sameStudentId =
-      String(item.studentId || '').trim() === String(user?.studentId || '').trim();
-
-    const sameName =
-      String(item.studentName || '').trim() === String(user?.name || '').trim();
-
-    return sameStudentId || sameName;
+  if (!effectiveStudentId) {
+    setMySubmissions([]);
+    setObjectiveQuestions([]);
+    setMyObjectiveSubmissions([]);
+    setCategoryProblems([]);
+    setLoadingResults(false);
+    return;
   }
+
+  try {
+    setLoadingResults(true);
+
+const [
+  codingData,
+  problemRes,
+  objectiveQuestionData,
+  objectiveSubmissionData,
+] = await Promise.all([
+  getSubmissionsByStudentId(effectiveStudentId),
+  getProblems(),
+
+  selectedCategoryId
+    ? getObjectiveQuestionsByCategoryId(selectedCategoryId)
+    : getObjectiveQuestions(),
+
+  getObjectiveSubmissionsByStudentId(effectiveStudentId),
+]);
+
+    const allProblems = problemRes?.data || [];
+
+const scopedProblems = selectedCategoryId
+  ? allProblems.filter(
+      (problem) => String(problem.categoryId) === String(selectedCategoryId)
+    )
+  : allProblems;
+
+const scopedExamIdSet = new Set(
+  scopedProblems.map((problem) => String(problem.id))
 );
 
-setMySubmissions(codingData || []);
-setObjectiveQuestions(objectiveQuestionData || []);
+const filteredCodingSubmissions = selectedCategoryId
+  ? (codingData || []).filter((submission) =>
+      scopedExamIdSet.has(String(submission.examId))
+    )
+  : codingData || [];
+
+const objectiveQuestionsInScope = objectiveQuestionData || [];
+
+const objectiveQuestionIdSet = new Set(
+  objectiveQuestionsInScope.map((question) => String(question.id))
+);
+
+const filteredObjectiveSubmissions = selectedCategoryId
+  ? (objectiveSubmissionData || []).filter((submission) =>
+      objectiveQuestionIdSet.has(String(submission.questionId))
+    )
+  : objectiveSubmissionData || [];
+
+setCategoryProblems(scopedProblems);
+setMySubmissions(filteredCodingSubmissions);
+setObjectiveQuestions(objectiveQuestionsInScope);
 setMyObjectiveSubmissions(filteredObjectiveSubmissions);
 
-    } catch (err) {
-      console.error('내 제출 결과 조회 실패:', err);
-      setMySubmissions([]);
-      setObjectiveQuestions([]);
-      setMyObjectiveSubmissions([]);
-    } finally {
-      setLoadingResults(false);
-    }
-  };
+  } catch (err) {
+    console.error('내 제출 결과 조회 실패:', err);
+    setMySubmissions([]);
+    setObjectiveQuestions([]);
+    setMyObjectiveSubmissions([]);
+    setCategoryProblems([]);
+  } finally {
+    setLoadingResults(false);
+  }
+};
 
   fetchMySubmissions();
-}, [user?.studentId]);
-  const { problems } = useProblem();
+}, [effectiveStudentId, effectiveStudentName, selectedCategoryId]);  
 
  const difficultyLabelMap = {
    easy: '쉬움',
@@ -89,54 +141,70 @@ setMyObjectiveSubmissions(filteredObjectiveSubmissions);
 const problemMap = useMemo(() => {
   const map = new Map();
 
-  problems.forEach((problem) => {
+  categoryProblems.forEach((problem) => {
     map.set(String(problem.id), problem);
   });
 
   return map;
-}, [problems]);
+}, [categoryProblems]);
+
+const scopedProblems = useMemo(() => {
+  return categoryProblems;
+}, [categoryProblems]);
 
 const resultList = useMemo(() => {
-  return mySubmissions.map((submission) => {
-    const problem = problemMap.get(String(submission.examId));
+  return mySubmissions
+    .map((submission) => {
+      const problem = problemMap.get(String(submission.examId));
 
-    const isCorrect =
-      submission.correct === true ||
-      submission.isCorrect === true ||
-      submission.status === 'accepted' ||
-      String(submission.correct).toLowerCase() === 'true';
+      const submissionCategoryId =
+        submission.categoryId ??
+        problem?.categoryId ??
+        '';
 
-    const point = Number(
-      problem?.point ??
-      submission.point ??
-      submission.maxPoint ??
-      submission.earnedPoint ??
-      0
+      const isCorrect =
+        submission.correct === true ||
+        submission.isCorrect === true ||
+        String(submission.status || '').toLowerCase() === 'accepted' ||
+        String(submission.correct).toLowerCase() === 'true';
+
+      const point = Number(
+        problem?.point ??
+          submission.point ??
+          submission.maxPoint ??
+          submission.earnedPoint ??
+          0
+      );
+
+      const earnedPoint = Number(
+        submission.earnedPoint ?? (isCorrect ? point : 0)
+      );
+
+      return {
+        id: submission.id,
+        examId: submission.examId,
+        categoryId: submissionCategoryId,
+        title: problem?.title || `코딩 문제 ${submission.examId}`,
+        description: problem?.description || '',
+        difficulty: problem?.difficulty || 'easy',
+        submitted: true,
+        isCorrect,
+        point,
+        earnedPoint,
+        errorType: submission.status ?? null,
+        summary: submission.aiSummary ?? '',
+        wrongReason: submission.aiWrongReason ?? '',
+        solutionDirection: submission.aiSolutionDirection ?? '',
+        improvement: submission.aiImprovement ?? '',
+        submitTime: submission.submitTime ?? null,
+      };
+    })
+    .filter((item) =>
+      selectedCategoryId
+        ? String(item.categoryId) === String(selectedCategoryId)
+        : true
     );
-
-    const earnedPoint = Number(
-      submission.earnedPoint ?? (isCorrect ? point : 0)
-    );
-
-    return {
-      id: submission.id,
-      examId: submission.examId,
-      title: problem?.title || `코딩 문제 ${submission.examId}`,
-      description: problem?.description || '',
-      difficulty: problem?.difficulty || 'easy',
-      submitted: true,
-      isCorrect,
-      point,
-      earnedPoint,
-      errorType: submission.status ?? null,
-      summary: submission.aiSummary ?? '',
-      wrongReason: submission.aiWrongReason ?? '',
-      solutionDirection: submission.aiSolutionDirection ?? '',
-      improvement: submission.aiImprovement ?? '',
-      submitTime: submission.submitTime ?? null,
-    };
-  });
-}, [mySubmissions, problemMap]);
+}, [mySubmissions, problemMap, selectedCategoryId]);
 
 const objectiveQuestionMap = useMemo(() => {
   const map = new Map();
@@ -157,7 +225,14 @@ const objectiveResultList = useMemo(() => {
       submission.isCorrect === true ||
       String(submission.correct).toLowerCase() === 'true';
 
-    const point = Number(question?.point ?? submission.point ?? 0);
+    const point = Number(
+      question?.point ??
+        submission.point ??
+        submission.maxPoint ??
+        submission.earnedPoint ??
+        0
+    );
+
     const earnedPoint = Number(
       submission.earnedPoint ?? (isCorrect ? point : 0)
     );
@@ -165,15 +240,42 @@ const objectiveResultList = useMemo(() => {
     return {
       id: submission.id,
       questionId: submission.questionId,
-      title: question?.title || `객관식 문제 ${submission.questionId}`,
-      description: question?.description || '',
-      difficulty: question?.difficulty || 'easy',
+
+      title:
+        question?.title ||
+        submission.title ||
+        submission.questionTitle ||
+        `객관식 문제 ${submission.questionId}`,
+
+      description:
+        question?.description ||
+        submission.description ||
+        submission.questionDescription ||
+        submission.objectiveQuestionDescription ||
+        '',
+
+      difficulty:
+        question?.difficulty ||
+        submission.difficulty ||
+        'easy',
+
       point,
       earnedPoint,
       isCorrect,
+
       selectedAnswer: submission.selectedAnswer,
-      correctAnswer: submission.correctAnswer,
-      explanation: question?.explanation || '',
+
+      correctAnswer:
+        submission.correctAnswer ||
+        question?.correctAnswer,
+
+      explanation:
+        question?.explanation ||
+        submission.explanation ||
+        submission.answerExplanation ||
+        submission.objectiveExplanation ||
+        '',
+
       submitTime: submission.submitTime,
     };
   });
@@ -200,8 +302,8 @@ const stats = useMemo(() => {
   );
 
 const codingMaxScore =
-  problems.length > 0
-    ? problems.reduce((sum, p) => sum + Number(p.point ?? 0), 0)
+  scopedProblems.length > 0
+    ? scopedProblems.reduce((sum, p) => sum + Number(p.point ?? 0), 0)
     : resultList.reduce((sum, p) => sum + Number(p.point ?? 0), 0);
 
   const objectiveMaxScore = objectiveQuestions.reduce(
@@ -254,7 +356,7 @@ const codingMaxScore =
     mediumRate: rate(medium),
     hardRate: rate(hard),
   };
-}, [resultList, objectiveResultList, problems, objectiveQuestions]);
+}, [resultList, objectiveResultList, scopedProblems, objectiveQuestions]);
   const lineChartData = [
   { name: '쉬움', rate: stats.easyRate },
   { name: '보통', rate: stats.mediumRate },
@@ -267,6 +369,70 @@ const pieChartData = [
 ];
 
 const PIE_COLORS = ['#22c55e', '#ef4444'];
+
+const showCodingResults =
+  resultTypeFilter === 'all' || resultTypeFilter === 'coding';
+
+const showObjectiveResults =
+  resultTypeFilter === 'all' || resultTypeFilter === 'objective';
+
+const handlePrintResults = () => {
+  window.print();
+};
+
+const handleDownloadResultsText = () => {
+  const lines = [
+    '결과 확인',
+    `학생: ${effectiveStudentName || '-'} (${effectiveStudentId || '-'})`,
+    selectedCategoryId ? `시험 폴더 ID: ${selectedCategoryId}` : '시험 폴더 ID: 전체',
+    '',
+    '[점수 요약]',
+    `전체 정답/제출: ${stats.correct}/${stats.total}`,
+    `코딩 점수: ${stats.codingScore}/${stats.codingMaxScore}`,
+    `객관식 점수: ${stats.objectiveScore}/${stats.objectiveMaxScore}`,
+    `총점: ${stats.totalScore}/${stats.maxScore}`,
+    '',
+    '[코딩 문제 결과]',
+    ...(resultList.length === 0
+      ? ['제출한 코딩 문제가 없습니다.']
+      : resultList.flatMap((item, index) => [
+          `${index + 1}. ${item.title}`,
+          `   결과: ${item.isCorrect ? '정답' : '오답'}`,
+          `   점수: ${item.earnedPoint}/${item.point}`,
+          `   오류유형: ${item.errorType || '없음'}`,
+          `   요약: ${item.summary || '-'}`,
+          `   오류 원인: ${item.wrongReason || '-'}`,
+          `   해결 방향: ${item.solutionDirection || '-'}`,
+          `   개선 피드백: ${item.improvement || '-'}`,
+        ])),
+    '',
+    '[객관식 문제 결과]',
+    ...(objectiveResultList.length === 0
+      ? ['제출한 객관식 문제가 없습니다.']
+      : objectiveResultList.flatMap((item, index) => [
+          `${index + 1}. ${item.title}`,
+          `   결과: ${item.isCorrect ? '정답' : '오답'}`,
+          `   점수: ${item.earnedPoint}/${item.point}`,
+          `   선택 답안: ${item.selectedAnswer}번`,
+          `   정답: ${item.correctAnswer}번`,
+          `   문제 설명: ${item.description || '-'}`,
+          `   해설: ${item.explanation || '-'}`,
+        ])),
+  ];
+
+  const blob = new Blob([lines.join('\n')], {
+    type: 'text/plain;charset=utf-8',
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = `result-${effectiveStudentId || 'student'}-${selectedCategoryId || 'all'}.txt`;
+  link.click();
+
+  URL.revokeObjectURL(url);
+};
 
 if (loadingResults) {
   return (
@@ -281,8 +447,32 @@ if (loadingResults) {
 return (
   <div className="results-page">
     <div className="results-inner">
-      <h2 className="results-title">결과 확인</h2>
-      <p className="results-subtitle">제출한 문제와 AI 피드백을 확인할 수 있습니다.</p>
+      <div className="results-title-row">
+  <div>
+    <h2 className="results-title">결과 확인</h2>
+    <p className="results-subtitle">
+      제출한 문제와 AI 피드백을 확인할 수 있습니다.
+    </p>
+  </div>
+
+  <div className="results-action-buttons">
+    <button
+      type="button"
+      className="results-action-btn"
+      onClick={handlePrintResults}
+    >
+      인쇄
+    </button>
+
+    <button
+      type="button"
+      className="results-action-btn primary"
+      onClick={handleDownloadResultsText}
+    >
+      TXT 다운로드
+    </button>
+  </div>
+</div>
 
 <div className="results-summary">
   <div className="results-stat-card">
@@ -411,75 +601,115 @@ return (
         </div>
       </div>
 
-<h3 className="results-section-title">코딩 문제 결과</h3>
+<div className="results-filter-box">
+  <div>
+    <h3 className="results-section-title">결과 유형 선택</h3>
+    <p>전체 결과, 코딩 문제 결과, 객관식 문제 결과를 나눠서 확인할 수 있습니다.</p>
+  </div>
 
-      <div className="results-list">
-        {resultList.length === 0 ? (
-          <div className="results-empty">아직 제출한 문제가 없습니다.</div>
-        ) : (
-          resultList.map((item) => (
-            <div key={item.id} className="result-card">
-              <div className="result-card-header">
-                <div>
-                  <div className="result-problem-title">{item.title}</div>
-		<div className="result-meta">
-  		난이도: {difficultyLabelMap[item.difficulty] || '쉬움'} ·
-  		점수: {item.earnedPoint}/{item.point}점 ·
-  		오류유형: {item.errorType || '없음'}
-		</div>
-                </div>
+  <div className="results-filter-buttons">
+    <button
+      type="button"
+      className={`results-filter-btn ${resultTypeFilter === 'all' ? 'active' : ''}`}
+      onClick={() => setResultTypeFilter('all')}
+    >
+      전체
+    </button>
 
-                <div className={`result-badge ${item.isCorrect ? 'correct' : 'wrong'}`}>
-                  {item.isCorrect ? '정답' : '오답'}
-                </div>
-              </div>
+    <button
+      type="button"
+      className={`results-filter-btn ${resultTypeFilter === 'coding' ? 'active' : ''}`}
+      onClick={() => setResultTypeFilter('coding')}
+    >
+      코딩 문제
+    </button>
 
-              <div className="result-ai-box">
-                <p><strong>요약:</strong> {item.summary || '-'}</p>
-                <p><strong>오류 원인:</strong> {item.wrongReason || '-'}</p>
-                <p><strong>해결 방향:</strong> {item.solutionDirection || '-'}</p>
-                <p><strong>개선 피드백:</strong> {item.improvement || '-'}</p>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+    <button
+      type="button"
+      className={`results-filter-btn ${resultTypeFilter === 'objective' ? 'active' : ''}`}
+      onClick={() => setResultTypeFilter('objective')}
+    >
+      객관식 문제
+    </button>
+  </div>
+</div>
 
-	      <h3 className="results-section-title objective-result-title">
-        객관식 문제 결과
-      </h3>
+{showCodingResults && (
+  <>
+    <h3 className="results-section-title">코딩 문제 결과</h3>
 
-      <div className="results-list">
-        {objectiveResultList.length === 0 ? (
-          <div className="results-empty">아직 제출한 객관식 문제가 없습니다.</div>
-        ) : (
-          objectiveResultList.map((item) => (
-            <div key={`objective-${item.id}`} className="result-card">
-              <div className="result-card-header">
-                <div>
-                  <div className="result-problem-title">{item.title}</div>
-                  <div className="result-meta">
-                    난이도: {difficultyLabelMap[item.difficulty] || '쉬움'} ·
-                    점수: {item.earnedPoint}/{item.point}점 ·
-                    선택 답안: {item.selectedAnswer}번 ·
-                    정답: {item.correctAnswer}번
-                  </div>
-                </div>
-
-                <div className={`result-badge ${item.isCorrect ? 'correct' : 'wrong'}`}>
-                  {item.isCorrect ? '정답' : '오답'}
+    <div className="results-list">
+      {resultList.length === 0 ? (
+        <div className="results-empty">아직 제출한 코딩 문제가 없습니다.</div>
+      ) : (
+        resultList.map((item) => (
+          <div key={item.id} className="result-card">
+            <div className="result-card-header">
+              <div>
+                <div className="result-problem-title">{item.title}</div>
+                <div className="result-meta">
+                  난이도: {difficultyLabelMap[item.difficulty] || '쉬움'} ·
+                  점수: {item.earnedPoint}/{item.point}점 ·
+                  오류유형: {item.errorType || '없음'}
                 </div>
               </div>
 
-              <div className="result-ai-box">
-                <p><strong>문제 설명:</strong> {item.description || '-'}</p>
-                <p><strong>해설:</strong> {item.explanation || '-'}</p>
+              <div className={`result-badge ${item.isCorrect ? 'correct' : 'wrong'}`}>
+                {item.isCorrect ? '정답' : '오답'}
               </div>
             </div>
-          ))
-        )}
-      </div>
 
+            <div className="result-ai-box">
+              <p><strong>요약:</strong> {item.summary || '-'}</p>
+              <p><strong>오류 원인:</strong> {item.wrongReason || '-'}</p>
+              <p><strong>해결 방향:</strong> {item.solutionDirection || '-'}</p>
+              <p><strong>개선 피드백:</strong> {item.improvement || '-'}</p>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </>
+)}
+
+{showObjectiveResults && (
+  <>
+    <h3 className="results-section-title objective-result-title">
+      객관식 문제 결과
+    </h3>
+
+    <div className="results-list">
+      {objectiveResultList.length === 0 ? (
+        <div className="results-empty">아직 제출한 객관식 문제가 없습니다.</div>
+      ) : (
+        objectiveResultList.map((item) => (
+          <div key={`objective-${item.id}`} className="result-card">
+            <div className="result-card-header">
+              <div>
+                <div className="result-problem-title">{item.title}</div>
+                <div className="result-meta">
+                  난이도: {difficultyLabelMap[item.difficulty] || '쉬움'} ·
+                  점수: {item.earnedPoint}/{item.point}점 ·
+                  선택 답안: {item.selectedAnswer}번 ·
+                  정답: {item.correctAnswer}번
+                </div>
+              </div>
+
+              <div className={`result-badge ${item.isCorrect ? 'correct' : 'wrong'}`}>
+                {item.isCorrect ? '정답' : '오답'}
+              </div>
+            </div>
+
+            <div className="result-ai-box">
+              <p><strong>문제 설명:</strong> {item.description || '-'}</p>
+              <p><strong>해설:</strong> {item.explanation || '-'}</p>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </>
+)}
     </div>
   </div>
 );

@@ -447,6 +447,76 @@ def generate_problem_draft(data: GenerateProblemDraftRequest) -> GenerateProblem
 
     return GenerateProblemDraftResponse(**parsed)
 
+def normalize_objective_question_result(parsed: dict, data: GenerateObjectiveQuestionRequest) -> dict:
+    allowed_difficulties = {"easy", "medium", "hard"}
+
+    difficulty = str(data.difficulty or parsed.get("difficulty") or "easy").strip().lower()
+    if difficulty not in allowed_difficulties:
+        difficulty = "easy"
+
+    try:
+        point = int(data.point if data.point is not None else parsed.get("point", 10))
+    except Exception:
+        point = 10
+
+    if point <= 0:
+        point = 10
+
+    try:
+        correct_answer = int(parsed.get("correctAnswer", 1))
+    except Exception:
+        correct_answer = 1
+
+    if correct_answer not in [1, 2, 3, 4]:
+        correct_answer = 1
+
+    cleaned = {
+        "title": str(parsed.get("title") or "객관식 문제").strip(),
+        "description": str(parsed.get("description") or "").strip(),
+        "choice1": str(parsed.get("choice1") or "").strip(),
+        "choice2": str(parsed.get("choice2") or "").strip(),
+        "choice3": str(parsed.get("choice3") or "").strip(),
+        "choice4": str(parsed.get("choice4") or "").strip(),
+        "correctAnswer": correct_answer,
+        "explanation": str(parsed.get("explanation") or "").strip(),
+        "difficulty": difficulty,
+        "point": point,
+        "source": "ai",
+    }
+
+    choices = [
+        cleaned["choice1"],
+        cleaned["choice2"],
+        cleaned["choice3"],
+        cleaned["choice4"],
+    ]
+
+    # 보기 중 빈 값이 있으면 기본 문구로 보정
+    for idx, choice in enumerate(choices, start=1):
+        if not choice:
+            cleaned[f"choice{idx}"] = f"보기 {idx}"
+
+    # 보기 중복이 있으면 중복 표시를 붙여 최소한 서로 다른 문자열로 보정
+    seen = set()
+    for idx in range(1, 5):
+        key = f"choice{idx}"
+        value = cleaned[key]
+
+        if value in seen:
+            cleaned[key] = f"{value} ({idx}번 보기)"
+
+        seen.add(cleaned[key])
+
+    correct_choice = cleaned.get(f"choice{correct_answer}", "")
+
+    if correct_choice and correct_choice not in cleaned["explanation"]:
+        cleaned["explanation"] = (
+            f"{cleaned['explanation']} 정답은 {correct_answer}번 '{correct_choice}'입니다."
+        ).strip()
+
+    return cleaned
+
+
 def generate_objective_question(data: GenerateObjectiveQuestionRequest) -> GenerateObjectiveQuestionResponse:
     client = get_openai_client()
 
@@ -480,6 +550,8 @@ def generate_objective_question(data: GenerateObjectiveQuestionRequest) -> Gener
     raw_text = response.output_text
     parsed = json.loads(raw_text)
 
+    parsed = normalize_objective_question_result(parsed, data)
+
     return GenerateObjectiveQuestionResponse(**parsed)
 
 def generate_testcases(data: GenerateTestCasesRequest) -> GenerateTestCasesResponse:
@@ -508,6 +580,7 @@ def generate_testcases(data: GenerateTestCasesRequest) -> GenerateTestCasesRespo
                 "name": TESTCASE_JSON_SCHEMA["name"],
                 "schema": TESTCASE_JSON_SCHEMA["schema"],
                 "strict": True
+
             }
         }
     )

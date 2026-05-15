@@ -1,8 +1,30 @@
+/* =========================================================
+   AdminResultPage.css
+   관리자 전체 결과 페이지 스타일
+   - 전체 제출 통계
+   - AI 분석
+   - 학생별 점수 현황
+   - 문제별/언어별/객관식 분석
+   - 제출 목록 및 제출 상세
+   ========================================================= */
+
+
+/* =========================================================
+   1. 페이지 기본 레이아웃
+   ========================================================= */
+
 .admin-result-page {
   padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.admin-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
 }
 
 .admin-result-header h1 {
@@ -15,25 +37,86 @@
   color: var(--text-secondary);
 }
 
+
+/* =========================================================
+   2. AI 피드백 일괄 생성 버튼
+   ========================================================= */
+
+.ai-reanalyze-button {
+  border: none;
+  border-radius: 14px;
+  padding: 14px 18px;
+  background: var(--accent-blue);
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.ai-reanalyze-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.ai-reanalyze-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   3. 시험 폴더 필터 카드
+   ========================================================= */
+
+.admin-filter-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.admin-filter-card h3 {
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.admin-filter-card p {
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.admin-filter-card select {
+  min-width: 240px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   4. 상단 요약 카드
+   ========================================================= */
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
 }
 
-.summary-card,
-.chart-card,
-.submission-list-panel,
-.submission-detail-panel,
-.detail-card {
+.summary-card {
+  padding: 18px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 14px;
   box-shadow: var(--shadow);
-}
-
-.summary-card {
-  padding: 18px;
 }
 
 .summary-label {
@@ -48,166 +131,74 @@
   color: var(--text-primary);
 }
 
-.chart-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
 
-.chart-card {
+/* =========================================================
+   5. 관리자 요약 인사이트 카드
+   ========================================================= */
+
+.admin-insight-card {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.14),
+    rgba(34, 197, 94, 0.12)
+  );
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 16px;
   padding: 20px;
-  min-height: 350px;
-  overflow: visible;
-}
-
-.chart-card h3 {
-  margin-bottom: 12px;
-  color: var(--text-primary);
-}
-
-.time-chart-wrapper {
-  max-width: 560px;
-  height: 260px;
-  margin: 0 auto;
-}
-
-.admin-result-main {
+  box-shadow: var(--shadow);
   display: grid;
-  grid-template-columns: 1.3fr 1fr;
-  gap: 16px;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 18px;
 }
 
-.submission-list-panel,
-.submission-detail-panel {
-  padding: 16px;
-  min-height: 500px;
-}
-
-.panel-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.panel-top h3 {
+.admin-insight-card h3 {
+  margin: 8px 0 10px;
   color: var(--text-primary);
+  font-size: 1.25rem;
 }
 
-.panel-filters {
-  display: flex;
+.admin-insight-card p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.admin-insight-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 }
 
-.panel-filters input,
-.panel-filters select {
-  padding: 10px 12px;
+.admin-insight-metrics div {
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
-  background: var(--bg-card);
-  color: var(--text-primary);
-}
-
-.submission-table-wrap {
-  overflow: auto;
-  max-height: 560px;
-}
-
-.submission-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.submission-table th,
-.submission-table td {
-  padding: 12px;
-  border-bottom: 1px solid var(--border-color);
-  text-align: left;
-  font-size: 0.92rem;
-}
-
-.submission-table thead th {
-  position: sticky;
-  top: 0;
-  background: var(--bg-card);
-  z-index: 1;
-}
-
-.submission-table tbody tr {
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.submission-table tbody tr:hover {
-  background: var(--bg-hover);
-}
-
-.submission-table tbody tr.active {
-  background: rgba(37, 99, 235, 0.12);
-}
-
-.detail-content {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.detail-card {
+  border-radius: 14px;
   padding: 14px;
 }
 
-.detail-card h4 {
-  margin-bottom: 10px;
-  color: var(--text-primary);
-}
-
-.code-block {
-  padding: 14px;
-  border-radius: 10px;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  overflow-x: auto;
-  white-space: pre-wrap;
-  font-family: var(--font-code);
-  font-size: 0.9rem;
-}
-
-.feedback-text {
-  margin-top: 8px;
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
-
-.empty-box {
-  height: 100%;
-  min-height: 240px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.admin-insight-metrics span {
+  display: block;
+  margin-bottom: 8px;
   color: var(--text-muted);
-  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
-@media (max-width: 1200px) {
-  .summary-grid,
-  .chart-grid,
-  .admin-result-main {
-    grid-template-columns: 1fr;
-  }
-
-  .panel-top {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .panel-filters {
-    flex-direction: column;
-  }
+.admin-insight-metrics strong {
+  color: var(--text-primary);
+  font-size: 1.2rem;
 }
+
+
+/* =========================================================
+   6. AI 취약 유형 분석 카드
+   ========================================================= */
 
 .ai-analysis-card {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(20, 184, 166, 0.14));
+  background: linear-gradient(
+    135deg,
+    rgba(37, 99, 235, 0.12),
+    rgba(20, 184, 166, 0.14)
+  );
   border: 1px solid rgba(37, 99, 235, 0.18);
   border-radius: 16px;
   padding: 20px;
@@ -308,16 +299,10 @@
   background: rgba(220, 38, 38, 0.08);
 }
 
-@media (max-width: 1200px) {
-  .ai-analysis-card {
-    grid-template-columns: 1fr;
-  }
 
-  .ai-status-chip-list {
-    grid-column: auto;
-  }
-}
-
+/* =========================================================
+   7. 학생별 점수 현황
+   ========================================================= */
 
 .student-score-card {
   background: var(--bg-card);
@@ -378,6 +363,7 @@
 
 .student-score-table th,
 .student-score-table td {
+  height: 52px;
   padding: 12px;
   border-bottom: 1px solid var(--border-color);
   text-align: left;
@@ -398,70 +384,10 @@
   font-size: 1.05rem;
 }
 
-@media (max-width: 900px) {
-  .student-score-card-header {
-    flex-direction: column;
-  }
-}
 
-.submission-pagination {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-color);
-}
-
-.pagination-btn {
-  min-width: 36px;
-  height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.pagination-btn:hover:not(:disabled) {
-  border-color: var(--accent-blue);
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.pagination-btn.active {
-  background: var(--accent-blue);
-  border-color: var(--accent-blue);
-  color: #ffffff;
-}
-
-.pagination-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.pagination-info {
-  margin-left: auto;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
-@media (max-width: 900px) {
-  .pagination-info {
-    width: 100%;
-    margin-left: 0;
-  }
-}
-
-.student-score-table th,
-.student-score-table td {
-  height: 52px;
-}
+/* =========================================================
+   8. 고급 요약 카드
+   ========================================================= */
 
 .advanced-summary-grid {
   display: grid;
@@ -499,13 +425,21 @@
   line-height: 1.5;
 }
 
+
+/* =========================================================
+   9. 분석 테이블 영역
+   문제별 오류 유형 / 언어별 정답률 / 객관식 정답률 / 체크 포인트
+   ========================================================= */
+
 .analysis-table-grid {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;
   gap: 16px;
+  align-items: start;
 }
 
 .analysis-table-card {
+  align-self: start;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 16px;
@@ -574,37 +508,371 @@
   border-radius: 14px;
 }
 
+/* 객관식 문제별 정답률 카드 높이 제한 */
+.analysis-table-card.objective-accuracy-card {
+  max-height: 360px;
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   10. 관리자 체크 포인트 카드
+   ========================================================= */
+
+.admin-check-card {
+  min-height: 260px;
+  max-height: 360px;
+  overflow: hidden;
+}
+
+.admin-check-list {
+  display: grid;
+  gap: 12px;
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.admin-check-item {
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.admin-check-item .check-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.admin-check-item strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.admin-check-item p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+
+/* =========================================================
+   11. 차트 영역
+   ========================================================= */
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.chart-card {
+  padding: 20px;
+  min-height: 350px;
+  overflow: visible;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.chart-card h3 {
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.time-chart-wrapper {
+  max-width: 560px;
+  height: 260px;
+  margin: 0 auto;
+}
+
+
+/* =========================================================
+   12. 제출 목록 / 제출 상세 영역
+   ========================================================= */
+
+.admin-result-main {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 16px;
+}
+
+.submission-list-panel,
+.submission-detail-panel {
+  padding: 16px;
+  min-height: 500px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.panel-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.panel-top h3 {
+  color: var(--text-primary);
+}
+
+.panel-filters {
+  display: flex;
+  gap: 10px;
+}
+
+.panel-filters input,
+.panel-filters select {
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.submission-table-wrap {
+  overflow: auto;
+  max-height: 560px;
+}
+
+.submission-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.submission-table th,
+.submission-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+  font-size: 0.92rem;
+}
+
+.submission-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-card);
+  z-index: 1;
+}
+
+.submission-table tbody tr {
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.submission-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.submission-table tbody tr.active {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+
+/* =========================================================
+   13. 제출 목록 페이지네이션
+   ========================================================= */
+
+.submission-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.pagination-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.pagination-btn.active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: #ffffff;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+
+/* =========================================================
+   14. 제출 상세
+   ========================================================= */
+
+.detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.detail-card {
+  padding: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.detail-card h4 {
+  margin-bottom: 10px;
+  color: var(--text-primary);
+}
+
+.code-block {
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  font-family: var(--font-code);
+  font-size: 0.9rem;
+}
+
+.feedback-text {
+  margin-top: 8px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.empty-box {
+  height: 100%;
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+
+/* =========================================================
+   15. 스크롤바 디자인
+   ========================================================= */
+
+.analysis-table-wrap::-webkit-scrollbar,
+.admin-check-list::-webkit-scrollbar,
+.student-score-table-wrap::-webkit-scrollbar,
+.submission-table-wrap::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.analysis-table-wrap::-webkit-scrollbar-track,
+.admin-check-list::-webkit-scrollbar-track,
+.student-score-table-wrap::-webkit-scrollbar-track,
+.submission-table-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.analysis-table-wrap::-webkit-scrollbar-thumb,
+.admin-check-list::-webkit-scrollbar-thumb,
+.student-score-table-wrap::-webkit-scrollbar-thumb,
+.submission-table-wrap::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+}
+
+.analysis-table-wrap::-webkit-scrollbar-thumb:hover,
+.admin-check-list::-webkit-scrollbar-thumb:hover,
+.student-score-table-wrap::-webkit-scrollbar-thumb:hover,
+.submission-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.7);
+}
+
+
+/* =========================================================
+   16. 반응형 처리
+   ========================================================= */
+
 @media (max-width: 1200px) {
+  .summary-grid,
+  .chart-grid,
+  .admin-result-main,
   .advanced-summary-grid,
   .analysis-table-grid {
     grid-template-columns: 1fr;
   }
+
+  .ai-analysis-card {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-status-chip-list {
+    grid-column: auto;
+  }
+
+  .panel-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .panel-filters {
+    flex-direction: column;
+  }
 }
 
-.admin-result-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
+@media (max-width: 1000px) {
+  .admin-filter-card,
+  .admin-insight-card {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-filter-card select {
+    width: 100%;
+  }
+
+  .admin-insight-metrics {
+    grid-template-columns: 1fr;
+  }
 }
 
-.ai-reanalyze-button {
-  border: none;
-  border-radius: 14px;
-  padding: 14px 18px;
-  background: var(--accent-blue);
-  color: white;
-  font-weight: 800;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-  transition: transform 0.15s ease, opacity 0.15s ease;
-}
+@media (max-width: 900px) {
+  .student-score-card-header {
+    flex-direction: column;
+  }
 
-.ai-reanalyze-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.ai-reanalyze-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+  .pagination-info {
+    width: 100%;
+    margin-left: 0;
+  }
 }

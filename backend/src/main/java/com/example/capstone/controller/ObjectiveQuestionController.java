@@ -94,6 +94,89 @@ public class ObjectiveQuestionController {
                 .orElseThrow(() -> new RuntimeException("객관식 문제를 찾을 수 없습니다."));
     }
 
+@PatchMapping("/questions/{id}")
+public ObjectiveQuestion updateQuestion(
+        @PathVariable Long id,
+        @RequestBody ObjectiveQuestion request
+) {
+    ObjectiveQuestion question = objectiveQuestionRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("객관식 문제를 찾을 수 없습니다."));
+
+    if (request.getCategoryId() != null) {
+        question.setCategoryId(request.getCategoryId());
+    }
+
+    if (request.getTitle() != null) {
+        if (request.getTitle().isBlank()) {
+            throw new RuntimeException("문제 제목을 입력하세요.");
+        }
+        question.setTitle(request.getTitle().trim());
+    }
+
+    if (request.getDescription() != null) {
+        if (request.getDescription().isBlank()) {
+            throw new RuntimeException("문제 설명을 입력하세요.");
+        }
+        question.setDescription(request.getDescription().trim());
+    }
+
+    if (request.getChoice1() != null) {
+        if (request.getChoice1().isBlank()) {
+            throw new RuntimeException("보기 1을 입력하세요.");
+        }
+        question.setChoice1(request.getChoice1().trim());
+    }
+
+    if (request.getChoice2() != null) {
+        if (request.getChoice2().isBlank()) {
+            throw new RuntimeException("보기 2를 입력하세요.");
+        }
+        question.setChoice2(request.getChoice2().trim());
+    }
+
+    if (request.getChoice3() != null) {
+        if (request.getChoice3().isBlank()) {
+            throw new RuntimeException("보기 3을 입력하세요.");
+        }
+        question.setChoice3(request.getChoice3().trim());
+    }
+
+    if (request.getChoice4() != null) {
+        if (request.getChoice4().isBlank()) {
+            throw new RuntimeException("보기 4를 입력하세요.");
+        }
+        question.setChoice4(request.getChoice4().trim());
+    }
+
+    if (request.getCorrectAnswer() != null) {
+        if (request.getCorrectAnswer() < 1 || request.getCorrectAnswer() > 4) {
+            throw new RuntimeException("정답 번호는 1~4 중 하나여야 합니다.");
+        }
+        question.setCorrectAnswer(request.getCorrectAnswer());
+    }
+
+    if (request.getExplanation() != null) {
+        question.setExplanation(request.getExplanation().trim());
+    }
+
+    if (request.getDifficulty() != null && !request.getDifficulty().isBlank()) {
+        question.setDifficulty(request.getDifficulty().trim());
+    }
+
+    if (request.getPoint() != null) {
+        if (request.getPoint() <= 0) {
+            throw new RuntimeException("점수는 1점 이상이어야 합니다.");
+        }
+        question.setPoint(request.getPoint());
+    }
+
+    if (request.getSource() != null && !request.getSource().isBlank()) {
+        question.setSource(request.getSource().trim());
+    }
+
+    return objectiveQuestionRepository.save(question);
+}
+
 @Transactional
 @DeleteMapping("/questions/{id}")
 public String deleteQuestion(@PathVariable Long id) {

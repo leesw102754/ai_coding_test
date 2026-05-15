@@ -169,6 +169,12 @@
   text-align: center;
 }
 
+.stat-card:hover {
+  transform: translateY(-2px);
+  transition: 0.2s;
+  background: var(--bg-hover);
+}
+
 .stat-icon {
   font-size: 1.2rem;
   margin-bottom: 4px;
@@ -451,4 +457,208 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.category-progress-text {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.category-progress-bar {
+  width: 180px;
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+
+.category-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #4f8cff,
+    #62d0ff
+  );
+  transition: width 0.3s ease;
+}
+
+.completed-badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #67e8a5;
+  background: rgba(103, 232, 165, 0.12);
+  border: 1px solid rgba(103, 232, 165, 0.3);
+}
+
+.stats-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.stats-summary-item {
+  position: relative;
+
+  padding: 18px 14px;
+  border-radius: 14px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,0.03),
+      rgba(255,255,255,0.01)
+    );
+
+  border: 1px solid var(--border-color);
+
+  overflow: hidden;
+
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.stats-summary-item:hover {
+  transform: translateY(-2px);
+
+  border-color: rgba(79,140,255,0.45);
+
+  box-shadow:
+    0 8px 24px rgba(0,0,0,0.18);
+}
+
+.stats-summary-item::before {
+  content: '';
+
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: 3px;
+
+  background: linear-gradient(
+    90deg,
+    #4f8cff,
+    #62d0ff
+  );
+}
+
+.stats-summary-item:nth-child(1)::before {
+  background: linear-gradient(90deg, #67e8a5, #22c55e);
+}
+
+.stats-summary-item:nth-child(2)::before {
+  background: linear-gradient(90deg, #60a5fa, #2563eb);
+}
+
+.stats-summary-item:nth-child(3)::before {
+  background: linear-gradient(90deg, #fbbf24, #f59e0b);
+}
+
+.stats-summary-item:nth-child(4)::before {
+  background: linear-gradient(90deg, #fb7185, #e11d48);
+}
+
+.stats-summary-icon {
+  width: 34px;
+  height: 34px;
+
+  margin-bottom: 14px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+
+  background: rgba(255,255,255,0.05);
+
+  font-size: 16px;
+}
+
+.stats-summary-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+
+  color: var(--text-primary);
+}
+
+.stats-summary-label {
+  margin-top: 8px;
+
+  font-size: 0.8rem;
+  color: var(--text-muted);
+
+  letter-spacing: 0.02em;
+}
+
+.tutorial-guide-item {
+  border-color: rgba(34, 197, 94, 0.45);
+  background:
+    linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(59, 130, 246, 0.06)),
+    var(--bg-card);
+}
+
+.tutorial-guide-item:hover {
+  border-color: #22c55e;
+  box-shadow: 0 10px 28px rgba(34, 197, 94, 0.14);
+}
+
+.tutorial-only-badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.32);
+}
+
+.tutorial-guide-desc {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tutorial-start-badge {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.monitor-guide-item {
+  border-color: rgba(59, 130, 246, 0.45);
+  background:
+    linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(239, 68, 68, 0.06)),
+    var(--bg-card);
+}
+
+.monitor-guide-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 10px 28px rgba(59, 130, 246, 0.14);
+}
+
+.monitor-only-badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.32);
+}
+
+.monitor-start-badge {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
 }

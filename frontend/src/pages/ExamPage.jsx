@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   getExamsByCategory,
   getObjectiveQuestionsByCategoryId,
+  getSubmissionsByStudentId,
 } from '../api/problemApi';
 import './ExamPage.css';
+import { useAuth } from '../context/AuthContext';
 
 const difficultyLabel = {
   easy: '쉬움',
@@ -24,18 +26,40 @@ const difficultyClass = {
   어려움: 'tag-hard',
 };
 
+const formatDateTime = (value) => {
+  if (!value) return '';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 export default function ExamPage() {
   const { categoryId } = useParams();
   const navigate = useNavigate();
-
-  const [problems, setProblems] = useState([]);
-  const [objectiveQuestions, setObjectiveQuestions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+const [problems, setProblems] = useState([]);
+const [objectiveQuestions, setObjectiveQuestions] = useState([]);
+const [loading, setLoading] = useState(true);
+const [solvedProblems, setSolvedProblems] = useState([]);
+const [accessError, setAccessError] = useState(null);
 
   useEffect(() => {
 const fetchProblems = async () => {
   try {
     setLoading(true);
+
+    setAccessError(null);
 
     const [codingRes, objectiveData] = await Promise.all([
       getExamsByCategory(categoryId),
@@ -52,17 +76,65 @@ const fetchProblems = async () => {
 
     setProblems(mappedProblems);
     setObjectiveQuestions(objectiveProblems);
-  } catch (err) {
-    console.error('카테고리 문제 불러오기 실패:', err);
-    setProblems([]);
-    setObjectiveQuestions([]);
-  } finally {
+} catch (err) {
+  console.error('카테고리 문제 불러오기 실패:', err);
+
+  const serverStatus = err.response?.data?.status;
+  const serverMessage = err.response?.data?.message;
+
+  if (serverStatus === 'BEFORE_EXAM') {
+    setAccessError({
+      title: '시험 시작 전입니다.',
+      message: serverMessage || '아직 시험 시간이 시작되지 않았습니다.',
+	detail: err.response?.data?.startTime
+  	? `시작 시간: ${formatDateTime(err.response.data.startTime)}`
+ 	 : '',
+    });
+  } else if (serverStatus === 'EXAM_ENDED') {
+    setAccessError({
+      title: '시험이 종료되었습니다.',
+      message: serverMessage || '이미 종료된 시험입니다.',
+      detail: '',
+    });
+  } else {
+    setAccessError({
+      title: '문제 목록을 불러오지 못했습니다.',
+      message: '백엔드 서버 또는 시험 폴더 정보를 확인하세요.',
+      detail: '',
+    });
+  }
+
+  setProblems([]);
+  setObjectiveQuestions([]);
+} finally {
     setLoading(false);
   }
 };
 
     fetchProblems();
   }, [categoryId]);
+
+  useEffect(() => {
+  const fetchSolvedProblems = async () => {
+    if (!user?.studentId) return;
+
+    try {
+      const submissions = await getSubmissionsByStudentId(
+        user.studentId
+      );
+
+      const solvedIds = (submissions || []).map((item) =>
+        Number(item.examId)
+      );
+
+      setSolvedProblems(solvedIds);
+    } catch (err) {
+      console.error('제출 기록 조회 실패:', err);
+    }
+  };
+
+  fetchSolvedProblems();
+}, [user?.studentId]);
 
   const stats = useMemo(() => {
     return {
@@ -79,13 +151,29 @@ const fetchProblems = async () => {
     };
   }, [problems]);
 
-  if (loading) {
-    return (
-      <div className="exam-page">
-        <div className="exam-empty">문제 목록을 불러오는 중입니다...</div>
+if (loading) {
+  return (
+    <div className="exam-page">
+      <div className="exam-empty">문제 목록을 불러오는 중입니다...</div>
+    </div>
+  );
+}
+
+if (accessError) {
+  return (
+    <div className="exam-page">
+      <div className="exam-empty">
+        <h3>{accessError.title}</h3>
+        <p>{accessError.message}</p>
+        {accessError.detail && <p>{accessError.detail}</p>}
+
+        <button className="btn-back" onClick={() => navigate('/')}>
+          ← 시험 목록으로
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
     <div className="exam-page">
@@ -137,52 +225,70 @@ const fetchProblems = async () => {
             </div>
           ) : (
             <div className="exam-problem-list">
-              {problems.map((problem) => (
-		<div
-  			key={problem.id}
-  			className="exam-problem-item"
-		>
-                  <div className="exam-problem-left">
-                    <span className="exam-problem-number">
-                      {problem.number}
-                    </span>
+{problems.map((problem) => {
+  const isSolved = solvedProblems.includes(Number(problem.id));
 
-                    <div>
-                      <div className="exam-problem-title">
-                        {problem.title}
-                      </div>
+  return (
+    <div
+      key={problem.id}
+      className={`exam-problem-item ${
+        isSolved ? 'solved' : ''
+      }`}
+    >
+      <div className="exam-problem-left">
+        <span className="exam-problem-number">
+          {problem.number}
+        </span>
 
-                      <div className="exam-problem-meta">
-                        {problem.point ?? 0}점 · 제한시간{' '}
-                        {problem.timeLimit ?? 1000}ms
-                      </div>
-                    </div>
-                  </div>
+        <div>
+          <div className="exam-problem-title">
+            {problem.title}
 
-                  <div className="exam-problem-right">
-                    <span
-                      className={`difficulty-badge ${
-                        difficultyClass[problem.difficulty] || 'tag-easy'
-                      }`}
-                    >
-                      {difficultyLabel[problem.difficulty] || '쉬움'}
-                    </span>
+            {isSolved && (
+              <span className="solved-badge">
+                ✓ 완료
+              </span>
+            )}
+          </div>
 
-		<button
-		  type="button"
-  		className="exam-start-btn"
-  		onClick={(e) => {
-    		e.stopPropagation();
-    		navigate(`/problem/${problem.id}`, {
-      		state: { fromCategoryId: categoryId },
-    		});
-  		}}
-		>
-  		문제 풀기
-		</button>
-                  </div>
-                </div>
-              ))}
+          <div className="exam-problem-meta">
+            {problem.point ?? 0}점 · 제한시간{' '}
+            {problem.timeLimit ?? 1000}ms
+          </div>
+        </div>
+      </div>
+
+      <div className="exam-problem-right">
+        <span
+          className={`difficulty-badge ${
+            difficultyClass[problem.difficulty] || 'tag-easy'
+          }`}
+        >
+          {difficultyLabel[problem.difficulty] || '쉬움'}
+        </span>
+
+<button
+  type="button"
+  className={`exam-start-btn ${isSolved ? 'solved-btn' : ''}`}
+  onClick={(e) => {
+    e.stopPropagation();
+
+    if (isSolved) {
+      navigate(`/results?categoryId=${categoryId}`);
+      return;
+    }
+
+    navigate(`/problem/${problem.id}`, {
+      state: { fromCategoryId: categoryId },
+    });
+  }}
+>
+  {isSolved ? '결과 보기' : '문제 풀기'}
+</button>
+      </div>
+    </div>
+  );
+})}
             </div>
           )}
 

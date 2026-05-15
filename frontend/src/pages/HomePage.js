@@ -25,6 +25,22 @@ const difficultyClass = {
   어려움: 'tag-hard',
 };
 
+const isTutorialCategory = (category) => {
+  return String(category?.title || '').includes('튜토리얼');
+};
+
+const tutorialGuideCategory = {
+  id: 'tutorial-guide',
+  title: '튜토리얼 사용법',
+  isTutorialGuide: true,
+};
+
+const examMonitorGuideCategory = {
+  id: 'exam-monitor-guide',
+  title: '시험 운영 관리',
+  isExamMonitorGuide: true,
+};
+
 export default function HomePage() {
   const navigate = useNavigate();
   const { problems, fetchProblems, loading } = useProblem();
@@ -36,6 +52,7 @@ export default function HomePage() {
 
   const savedUser = sessionStorage.getItem('user');
   const user = savedUser ? JSON.parse(savedUser) : null;
+  const isAdmin = user?.role === 'ADMIN';
 
   const [categories, setCategories] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
@@ -46,6 +63,14 @@ export default function HomePage() {
     user?.username ||
     user?.id ||
     null;
+
+
+
+
+useEffect(() => {
+  fetchProblems();
+  fetchSubmissions();
+}, []);
 
   const fetchSubmissions = async () => {
     try {
@@ -72,21 +97,68 @@ useEffect(() => {
   fetchCategoriesData();
 }, []);
 
-const filteredCategories = categories.filter((cat) =>
+const visibleCategories = useMemo(() => {
+  const normalCategories = categories.filter(
+    (cat) => !isTutorialCategory(cat)
+  );
+
+  if (!isAdmin) {
+    return normalCategories;
+  }
+
+  return [tutorialGuideCategory, examMonitorGuideCategory, ...normalCategories];
+}, [categories, isAdmin]);
+
+const filteredCategories = visibleCategories.filter((cat) =>
   String(cat.title || '').toLowerCase().includes(search.toLowerCase())
 );
 
-  const mySubmissions = useMemo(() => {
-    if (!currentStudentId) return [];
+const mySubmissions = useMemo(() => {
+  return submissions.filter((s) => {
+    return (
+      String(s.studentId) === String(user?.studentId) ||
+      String(s.userId) === String(user?.id) ||
+      String(s.memberId) === String(user?.id)
+    );
+  });
+}, [submissions, user]);
 
-    return submissions.filter((s) => {
-      return (
-        String(s.studentId) === String(currentStudentId) ||
-        String(s.userId) === String(currentStudentId) ||
-        String(s.memberId) === String(currentStudentId)
+const categoryStats = useMemo(() => {
+  return categories
+    .filter((cat) => !isTutorialCategory(cat))
+    .map((cat) => {
+    const categoryProblems = problems.filter(
+      (p) => String(p.categoryId) === String(cat.id)
+    );
+
+    const totalProblems = categoryProblems.length;
+
+    const solvedCount = categoryProblems.filter((problem) => {
+      return mySubmissions.some(
+        (s) =>
+          String(s.examId) === String(problem.id) &&
+          (s.correct ?? s.isCorrect) === true
       );
-    });
-  }, [submissions, currentStudentId]);
+    }).length;
+
+    const submittedCount = categoryProblems.filter((problem) => {
+      return mySubmissions.some(
+        (s) => String(s.examId) === String(problem.id)
+      );
+    }).length;
+
+    return {
+      ...cat,
+      totalProblems,
+      solvedCount,
+      submittedCount,
+      completed:
+        totalProblems > 0 &&
+        solvedCount === totalProblems,
+    };
+  });
+}, [categories, problems, mySubmissions]);
+
 
   const problemsWithStatus = useMemo(() => {
     return problems.map((p) => {
@@ -122,21 +194,31 @@ const handleRefresh = async () => {
   }
 };
 
-  const computedStats = {
-    total: problemsWithStatus.length,
-    solved: problemsWithStatus.filter((p) => p.solved).length,
-    submitted: problemsWithStatus.filter((p) => p.submitted).length,
-    unsolved: problemsWithStatus.filter((p) => !p.submitted).length,
-    easy: problemsWithStatus.filter(
-      (p) => p.difficulty === 'easy' || p.difficulty === '쉬움'
-    ).length,
-    medium: problemsWithStatus.filter(
-      (p) => p.difficulty === 'medium' || p.difficulty === '보통'
-    ).length,
-    hard: problemsWithStatus.filter(
-      (p) => p.difficulty === 'hard' || p.difficulty === '어려움'
-    ).length,
-  };
+const computedStats = {
+  totalExams: categoryStats.length,
+
+  completedExams: categoryStats.filter(
+    (c) => c.completed
+  ).length,
+
+  inProgressExams: categoryStats.filter(
+    (c) =>
+      c.submittedCount > 0 &&
+      !c.completed
+  ).length,
+
+  totalSolvedProblems: categoryStats.reduce(
+    (sum, c) => sum + c.solvedCount,
+    0
+  ),
+
+  totalProblems: categoryStats.reduce(
+    (sum, c) => sum + c.totalProblems,
+    0
+  ),
+
+  totalSubmissions: mySubmissions.length,
+};
 
   const filtered = problemsWithStatus.filter((p) => {
     const title = p.title || '';
@@ -215,11 +297,20 @@ const handleRefresh = async () => {
             <h3 className="sidebar-heading">진행 현황</h3>
 
             <div className="progress-item">
-              <span className="progress-label">푼 문제</span>
+              <span className="progress-label">
+                완료 시험
+              </span>
+
               <span className="progress-value">
-                <span className="progress-solved">{computedStats.submitted}</span>
+                <span className="progress-solved">
+                  {computedStats.completedExams}
+                </span>
+
                 <span className="progress-sep"> / </span>
-                <span>{computedStats.total}</span>
+
+                <span>
+                  {computedStats.totalExams}
+                </span>
               </span>
             </div>
 
@@ -228,73 +319,59 @@ const handleRefresh = async () => {
                 className="progress-bar-fill"
                 style={{
                   width: `${
-                    computedStats.total > 0
-                      ? (computedStats.submitted / computedStats.total) * 100
+                    computedStats.totalExams > 0
+                      ? (
+                          computedStats.completedExams /
+                          computedStats.totalExams
+                        ) * 100
                       : 0
                   }%`,
                 }}
               />
             </div>
           </div>
+            <div className="sidebar-section">
+              <h3 className="sidebar-heading">통계</h3>
 
-          <div className="sidebar-section">
-            <h3 className="sidebar-heading">난이도별</h3>
-
-            <div className="diff-list">
-              <div className="diff-item" onClick={() => setFilter('easy')}>
-                <span className="diff-dot dot-easy" />
-                <span className="diff-name">쉬움</span>
-                <span className="diff-count">{computedStats.easy}</span>
-              </div>
-
-              <div className="diff-item" onClick={() => setFilter('medium')}>
-                <span className="diff-dot dot-medium" />
-                <span className="diff-name">보통</span>
-                <span className="diff-count">{computedStats.medium}</span>
-              </div>
-
-              <div className="diff-item" onClick={() => setFilter('hard')}>
-                <span className="diff-dot dot-hard" />
-                <span className="diff-name">어려움</span>
-                <span className="diff-count">{computedStats.hard}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="sidebar-section">
-            <h3 className="sidebar-heading">통계</h3>
-
-            <div className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-icon">🏆</div>
-                <div className="stat-value">{computedStats.solved}</div>
-                <div className="stat-label">정답</div>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon">📊</div>
-                <div className="stat-value">{computedStats.total}</div>
-                <div className="stat-label">전체</div>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon">⚡</div>
-                <div className="stat-value">
-                  {computedStats.total > 0
-                    ? Math.round((computedStats.solved / computedStats.total) * 100)
-                    : 0}
-                  %
+              <div className="stats-summary">
+                <div className="stats-summary-item">
+                  
+                  <div className="stats-summary-value">
+                    {computedStats.completedExams}
+                  </div>
+                  <div className="stats-summary-label">
+                    완료 시험
+                  </div>
                 </div>
-                <div className="stat-label">정답률</div>
-              </div>
 
-              <div className="stat-card">
-                <div className="stat-icon">🔥</div>
-                <div className="stat-value">{computedStats.unsolved}</div>
-                <div className="stat-label">미해결</div>
+                <div className="stats-summary-item">
+                  <div className="stats-summary-value">
+                    {computedStats.totalExams}
+                  </div>
+                  <div className="stats-summary-label">
+                    전체 시험
+                  </div>
+                </div>
+
+                <div className="stats-summary-item">
+                  <div className="stats-summary-value">
+                    {computedStats.totalSolvedProblems}
+                  </div>
+                  <div className="stats-summary-label">
+                    푼 문제
+                  </div>
+                </div>
+
+                <div className="stats-summary-item">
+                  <div className="stats-summary-value">
+                    {computedStats.totalSubmissions}
+                  </div>
+                  <div className="stats-summary-label">
+                    전체 제출
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
         </aside>
 
         <main className="problem-area">
@@ -315,28 +392,22 @@ const handleRefresh = async () => {
             </div>
 
             <div className="filter-group">
-              {['all', 'easy', 'medium', 'hard', 'solved', 'unsolved'].map((f) => (
+              {['all', 'solved', 'unsolved'].map((f) => (
                 <button
                   key={f}
                   className={`filter-btn ${filter === f ? 'active' : ''}`}
                   onClick={() => setFilter(f)}
                 >
                   {f === 'all'
-                    ? '전체'
-                    : f === 'easy'
-                    ? '쉬움'
-                    : f === 'medium'
-                    ? '보통'
-                    : f === 'hard'
-                    ? '어려움'
-                    : f === 'solved'
-                    ? '정답'
-                    : '미제출'}
+ 		 ? '전체'
+  		: f === 'solved'
+ 		 ? '완료'
+  		: '미제출'}
                 </button>
               ))}
             </div>
 
-            <span className="problem-count">{filtered.length}개 문제</span>
+            <span className="problem-count">{filteredCategories.length}개 시험</span>
 
 <button
   type="button"
@@ -362,32 +433,118 @@ const handleRefresh = async () => {
 </button>
           </div>
 
-<div className="problem-list">
-  {filteredCategories.length === 0 ? (
-    <div className="empty-state">
-      <div className="empty-icon">🔍</div>
-      <p>검색 결과가 없습니다.</p>
-    </div>
-  ) : (
-    filteredCategories.map((cat) => (
-      <div
-        key={cat.id}
-        className="problem-item"
-        onClick={() => navigate(`/exam/${cat.id}`)}
-      >
-        <div className="problem-left">
-          <span className="problem-title">{cat.title}</span>
-        </div>
+                    <div className="problem-list">
+            {filteredCategories.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">🔍</div>
+                <p>검색 결과가 없습니다.</p>
+              </div>
+            ) : (
+              filteredCategories.map((cat) => {
+                const isTutorialGuide = cat.isTutorialGuide === true;
+		const isExamMonitorGuide = cat.isExamMonitorGuide === true;
 
-        <div className="problem-right">
-          <span className="difficulty-badge tag-easy">
-            시험 시작
-          </span>
-        </div>
-      </div>
-    ))
-  )}
-</div>
+                const stat = categoryStats.find(
+                  (c) => String(c.id) === String(cat.id)
+                );
+
+                return (
+                  <div
+                    key={cat.id}
+className={`problem-item ${
+  isTutorialGuide ? 'tutorial-guide-item' : ''
+} ${
+  isExamMonitorGuide ? 'monitor-guide-item' : ''
+}`}
+onClick={() =>
+  isTutorialGuide
+    ? navigate('/tutorial')
+    : isExamMonitorGuide
+    ? navigate('/admin/exam-monitor')
+    : navigate(`/exam/${cat.id}`)
+}
+                  >
+                    <div className="problem-left">
+                      <span className="problem-title">
+                        {cat.title}
+
+                        {isTutorialGuide && (
+                          <span className="tutorial-only-badge">
+                            관리자 전용
+                          </span>
+                        )}
+
+                        {!isTutorialGuide && stat?.completed && (
+                          <span className="completed-badge">
+                            ✓ 완료
+                          </span>
+                        )}
+                      </span>
+
+{isTutorialGuide ? (
+  <>
+    <div className="category-progress-text">
+      문제 생성, 테스트케이스 관리, 객관식 출제, 결과 분석 사용법 안내
+    </div>
+
+    <div className="tutorial-guide-desc">
+      클릭하면 관리자용 사이트 사용 방법을 확인할 수 있습니다.
+    </div>
+  </>
+) : isExamMonitorGuide ? (
+  <>
+    <div className="category-progress-text">
+      시험 폴더별 시작/종료 통제와 학생 이탈 알림 확인
+    </div>
+
+    <div className="tutorial-guide-desc">
+      클릭하면 시험 운영 관리 화면으로 이동합니다.
+    </div>
+  </>
+) : (
+                        <>
+                          <div className="category-progress-text">
+                            {stat?.solvedCount ?? 0} / {stat?.totalProblems ?? 0} 문제 완료
+                          </div>
+
+                          <div className="category-progress-bar">
+                            <div
+                              className="category-progress-fill"
+                              style={{
+                                width: `${
+                                  stat?.totalProblems > 0
+                                    ? (stat.solvedCount / stat.totalProblems) * 100
+                                    : 0
+                                }%`,
+                              }}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="problem-right">
+                      <span
+                        className={`difficulty-badge ${
+  			isTutorialGuide
+    			? 'tutorial-start-badge'
+    			: isExamMonitorGuide
+    			? 'monitor-start-badge'
+    			: 'tag-easy'
+			}`}
+                      >
+                        {isTutorialGuide
+  			? '사용법 보기'
+  			: isExamMonitorGuide
+  			? '운영 관리'
+  			: '시험 시작'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </main>
       </div>
     </div>
