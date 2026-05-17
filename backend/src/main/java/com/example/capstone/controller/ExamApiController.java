@@ -25,6 +25,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -606,27 +608,76 @@ public Map<String, Object> reanalyzeSubmissionWithAi(@PathVariable Long id) {
 }
 
 @PostMapping("/submissions/reanalyze-ai")
-public Map<String, Object> reanalyzeAllSubmissionsWithAi() {
+public Map<String, Object> reanalyzeAllSubmissionsWithAi(
+        @RequestParam(required = false) Long categoryId
+) {
     List<Submission> submissions = submissionRepository.findAll();
+
+    if (categoryId != null) {
+        Set<Long> examIds = examRepository.findByCategoryId(categoryId)
+                .stream()
+                .map(Exam::getId)
+                .collect(Collectors.toSet());
+
+        submissions = submissions.stream()
+                .filter(submission ->
+                        submission.getExamId() != null &&
+                        examIds.contains(submission.getExamId())
+                )
+                .toList();
+    }
+
     List<Map<String, Object>> details = new java.util.ArrayList<>();
 
     int successCount = 0;
     int failCount = 0;
+    int analyzedTargetCount = 0;
+    int skippedAcceptedCount = 0;
+    int skippedAlreadyFeedbackCount = 0;
+    int skippedInvalidCount = 0;
 
     for (Submission submission : submissions) {
         Map<String, Object> itemResult = new HashMap<>();
         itemResult.put("submissionId", submission.getId());
+        itemResult.put("examId", submission.getExamId());
+
+        if (isAcceptedSubmission(submission)) {
+            skippedAcceptedCount++;
+
+            itemResult.put("success", true);
+            itemResult.put("skipped", true);
+            itemResult.put("skipReason", "accepted");
+            itemResult.put("message", "정답 제출은 AI 분석을 건너뜁니다.");
+            details.add(itemResult);
+            continue;
+        }
+
+        if (hasAiFeedback(submission)) {
+            skippedAlreadyFeedbackCount++;
+
+            itemResult.put("success", true);
+            itemResult.put("skipped", true);
+            itemResult.put("skipReason", "already_has_feedback");
+            itemResult.put("message", "이미 AI 피드백이 있어 재분석을 건너뜁니다.");
+            details.add(itemResult);
+            continue;
+        }
 
         if (submission.getExamId() == null
                 || submission.getLanguage() == null
                 || submission.getCode() == null
                 || submission.getCode().isBlank()) {
-            failCount++;
+            skippedInvalidCount++;
+
             itemResult.put("success", false);
+            itemResult.put("skipped", true);
+            itemResult.put("skipReason", "invalid_submission");
             itemResult.put("message", "재분석에 필요한 제출 정보가 부족합니다.");
             details.add(itemResult);
             continue;
         }
+
+        analyzedTargetCount++;
 
         try {
             AiAnalyzeResponse aiResponse = aiService.analyzeSubmission(submission);
@@ -638,26 +689,57 @@ public Map<String, Object> reanalyzeAllSubmissionsWithAi() {
             applyAiResponseToSubmission(submission, aiResponse);
 
             successCount++;
+
             itemResult.put("success", true);
+            itemResult.put("skipped", false);
             itemResult.put("status", aiResponse.getErrorType());
             itemResult.put("message", "AI 피드백 재생성 완료");
         } catch (Exception e) {
             failCount++;
+
             itemResult.put("success", false);
+            itemResult.put("skipped", false);
             itemResult.put("message", e.getMessage());
         }
 
         details.add(itemResult);
     }
 
+    int skippedCount =
+            skippedAcceptedCount +
+            skippedAlreadyFeedbackCount +
+            skippedInvalidCount;
+
     Map<String, Object> result = new HashMap<>();
     result.put("message", "AI 피드백 일괄 재생성 작업 완료");
+    result.put("categoryId", categoryId);
     result.put("totalCount", submissions.size());
+    result.put("analyzedTargetCount", analyzedTargetCount);
     result.put("successCount", successCount);
     result.put("failCount", failCount);
+    result.put("skippedCount", skippedCount);
+    result.put("skippedAcceptedCount", skippedAcceptedCount);
+    result.put("skippedAlreadyFeedbackCount", skippedAlreadyFeedbackCount);
+    result.put("skippedInvalidCount", skippedInvalidCount);
     result.put("results", details);
 
     return result;
+}
+
+private boolean isAcceptedSubmission(Submission submission) {
+    return submission.getStatus() != null
+            && submission.getStatus().trim().equalsIgnoreCase("accepted");
+}
+
+private boolean hasAiFeedback(Submission submission) {
+    return hasText(submission.getAiSummary())
+            || hasText(submission.getAiWrongReason())
+            || hasText(submission.getAiSolutionDirection())
+            || hasText(submission.getAiImprovement());
+}
+
+private boolean hasText(String value) {
+    return value != null && !value.trim().isEmpty();
 }
 
 private void applyAiResponseToSubmission(Submission submission, AiAnalyzeResponse aiResponse) {

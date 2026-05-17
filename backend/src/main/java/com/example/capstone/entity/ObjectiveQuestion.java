@@ -36,9 +36,19 @@ public class ObjectiveQuestion {
 
     private Integer point;
 
+private Integer displayOrder;
+
     private String source;
 
     private LocalDateTime createdAt;
+
+public Integer getDisplayOrder() {
+    return displayOrder;
+}
+
+public void setDisplayOrder(Integer displayOrder) {
+    this.displayOrder = displayOrder;
+}
 
     public Long getId() {
         return id;

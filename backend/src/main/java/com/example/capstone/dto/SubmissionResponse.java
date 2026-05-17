@@ -12,10 +12,11 @@ public class SubmissionResponse {
     private Long examId;
     private String studentName;
     private String studentId;
-    private String language;
-    private String status;
-    private boolean isCorrect;
-    private LocalDateTime submitTime;
+private String language;
+private String code;
+private String status;
+private boolean isCorrect;
+private LocalDateTime submitTime;
 
     private String aiSummary;
     private String aiWrongReason;
@@ -29,8 +30,9 @@ public class SubmissionResponse {
         this.examId = s.getExamId();
         this.studentName = s.getStudentName();
         this.studentId = s.getStudentId();
-        this.language = s.getLanguage();
-        this.status = s.getStatus();
+	this.language = s.getLanguage();
+	this.code = s.getCode();
+	this.status = s.getStatus();
         this.isCorrect = s.getStatus() != null &&
                 s.getStatus().trim().equalsIgnoreCase("accepted");
         this.submitTime = s.getSubmitTime();

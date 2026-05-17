@@ -18,6 +18,13 @@ export default function AdminObjectivePage() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [source, setSource] = useState('manual');
 
+const [bulkTopic, setBulkTopic] = useState('');
+const [bulkEasyCount, setBulkEasyCount] = useState(3);
+const [bulkMediumCount, setBulkMediumCount] = useState(1);
+const [bulkHardCount, setBulkHardCount] = useState(1);
+const [bulkPoint, setBulkPoint] = useState(10);
+const [bulkLoading, setBulkLoading] = useState(false);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [choice1, setChoice1] = useState('');
@@ -279,6 +286,132 @@ setMessage('객관식 문제가 등록되었습니다.');
     );
   } finally {
     setLoading(false);
+  }
+};
+
+const handleBulkAiGenerate = async () => {
+  if (!selectedCategoryId) {
+    setMessage('시험 폴더를 먼저 선택하세요.');
+    return;
+  }
+
+  if (!bulkTopic.trim()) {
+    setMessage('대량 생성할 객관식 문제 주제를 입력하세요.');
+    return;
+  }
+
+  const easyCount = Number(bulkEasyCount) || 0;
+  const mediumCount = Number(bulkMediumCount) || 0;
+  const hardCount = Number(bulkHardCount) || 0;
+  const pointValue = Number(bulkPoint) || 10;
+
+  const totalCount = easyCount + mediumCount + hardCount;
+
+  if (totalCount <= 0) {
+    setMessage('생성할 문제 개수를 1개 이상 입력하세요.');
+    return;
+  }
+
+  if (totalCount > 20) {
+    setMessage('한 번에 생성할 수 있는 객관식 문제는 최대 20개까지 권장합니다.');
+    return;
+  }
+
+  if (pointValue <= 0) {
+    setMessage('점수는 1점 이상이어야 합니다.');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    [
+      '객관식 문제를 대량 생성하고 바로 저장합니다.',
+      '',
+      `주제: ${bulkTopic.trim()}`,
+      `쉬움: ${easyCount}개`,
+      `보통: ${mediumCount}개`,
+      `어려움: ${hardCount}개`,
+      `문항당 점수: ${pointValue}점`,
+      '',
+      '계속 진행할까요?',
+    ].join('\n')
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  const jobs = [
+    ...Array.from({ length: easyCount }, () => ({ difficulty: 'easy' })),
+    ...Array.from({ length: mediumCount }, () => ({ difficulty: 'medium' })),
+    ...Array.from({ length: hardCount }, () => ({ difficulty: 'hard' })),
+  ];
+
+  let successCount = 0;
+  let failCount = 0;
+
+  try {
+    setBulkLoading(true);
+    setMessage('객관식 문제를 대량 생성 중입니다...');
+
+    for (let i = 0; i < jobs.length; i += 1) {
+      const job = jobs[i];
+
+      try {
+        const result = await generateAiObjectiveQuestion({
+          categoryId: Number(selectedCategoryId),
+          topic: `${bulkTopic.trim()} / ${i + 1}번째 문제 / 이전 문제와 중복되지 않게 생성`,
+          difficulty: job.difficulty,
+          point: pointValue,
+        });
+
+        const payload = {
+          categoryId: Number(selectedCategoryId),
+          title: result.title || `${bulkTopic.trim()} 객관식 문제`,
+          description: result.description || '',
+          choice1: result.choice1 || '',
+          choice2: result.choice2 || '',
+          choice3: result.choice3 || '',
+          choice4: result.choice4 || '',
+          correctAnswer: Number(result.correctAnswer) || 1,
+          explanation: result.explanation || '',
+          difficulty: result.difficulty || job.difficulty,
+          point: Number(result.point) || pointValue,
+          source: 'ai',
+        };
+
+        if (
+          !payload.title.trim() ||
+          !payload.description.trim() ||
+          !payload.choice1.trim() ||
+          !payload.choice2.trim() ||
+          !payload.choice3.trim() ||
+          !payload.choice4.trim()
+        ) {
+          throw new Error('AI 생성 결과에 빈 항목이 있습니다.');
+        }
+
+        await createObjectiveQuestion(payload);
+        successCount += 1;
+      } catch (err) {
+        console.error('객관식 대량 생성 개별 실패:', err);
+        failCount += 1;
+      }
+
+      setMessage(
+        `객관식 대량 생성 중... ${i + 1}/${jobs.length} 처리 완료`
+      );
+    }
+
+    await loadQuestions(selectedCategoryId);
+
+    setMessage(
+      `객관식 대량 생성 완료: 성공 ${successCount}개, 실패 ${failCount}개`
+    );
+  } catch (err) {
+    console.error('객관식 대량 생성 실패:', err);
+    setMessage('객관식 대량 생성 중 오류가 발생했습니다.');
+  } finally {
+    setBulkLoading(false);
   }
 };
 
@@ -550,6 +683,77 @@ const handleDelete = async (id) => {
           )}
         </div>
       </div>
+
+<div className="bulk-ai-box">
+  <h3>객관식 문제 대량 AI 생성</h3>
+  <p>
+    주제와 난이도별 개수를 입력하면 객관식 문제를 여러 개 생성하고 바로 저장합니다.
+  </p>
+
+  <div className="form-group">
+    <label>대량 생성 주제</label>
+    <input
+      type="text"
+      value={bulkTopic}
+      onChange={(e) => setBulkTopic(e.target.value)}
+      placeholder="예: Java 반복문, Python 리스트, DB 정규화"
+    />
+  </div>
+
+  <div className="bulk-count-grid">
+    <div className="form-group">
+      <label>쉬움 개수</label>
+      <input
+        type="number"
+        min="0"
+        max="20"
+        value={bulkEasyCount}
+        onChange={(e) => setBulkEasyCount(e.target.value)}
+      />
+    </div>
+
+    <div className="form-group">
+      <label>보통 개수</label>
+      <input
+        type="number"
+        min="0"
+        max="20"
+        value={bulkMediumCount}
+        onChange={(e) => setBulkMediumCount(e.target.value)}
+      />
+    </div>
+
+    <div className="form-group">
+      <label>어려움 개수</label>
+      <input
+        type="number"
+        min="0"
+        max="20"
+        value={bulkHardCount}
+        onChange={(e) => setBulkHardCount(e.target.value)}
+      />
+    </div>
+
+    <div className="form-group">
+      <label>문항당 점수</label>
+      <input
+        type="number"
+        min="1"
+        value={bulkPoint}
+        onChange={(e) => setBulkPoint(e.target.value)}
+      />
+    </div>
+  </div>
+
+  <button
+    type="button"
+    className="bulk-ai-button"
+    onClick={handleBulkAiGenerate}
+    disabled={bulkLoading || aiLoading || loading}
+  >
+    {bulkLoading ? '대량 생성 중...' : '객관식 대량 생성'}
+  </button>
+</div>
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   getObjectiveQuestionsByCategoryId,
   updateObjectiveQuestion,
   deleteObjectiveQuestion,
+  updateObjectiveQuestionOrder,
 } from '../api/problemApi';
 import './AdminExamManagePage.css';
 import { toast } from 'react-toastify';
@@ -62,6 +63,19 @@ export default function AdminExamManagePage() {
     point: 20,
   });
 
+const sortObjectiveQuestionsByDisplayOrder = (items = []) => {
+  return [...items].sort((a, b) => {
+    const orderA = a.displayOrder ?? Number.MAX_SAFE_INTEGER;
+    const orderB = b.displayOrder ?? Number.MAX_SAFE_INTEGER;
+
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+
+    return Number(a.id ?? 0) - Number(b.id ?? 0);
+  });
+};
+
 const [testCases, setTestCases] = useState([]);
 const [testCaseLoading, setTestCaseLoading] = useState(false);
 const [testCaseSavingId, setTestCaseSavingId] = useState(null);
@@ -82,7 +96,7 @@ const [objectiveEditForm, setObjectiveEditForm] = useState(emptyObjectiveForm);
 const isOrderModeAvailable =
   search.trim() === '' &&
   difficultyFilter === 'all' &&
-  selectedCategoryId === 'all';
+  selectedCategoryId !== '';
 
 const filteredProblems = problems.filter((problem) => {
   if (!selectedCategoryId) {
@@ -140,7 +154,7 @@ const fetchObjectiveQuestions = async (categoryId) => {
   try {
     setObjectiveLoading(true);
     const data = await getObjectiveQuestionsByCategoryId(categoryId);
-    setObjectiveQuestions(data || []);
+    setObjectiveQuestions(sortObjectiveQuestionsByDisplayOrder(data || []));
   } catch (err) {
     console.error('객관식 문제 조회 실패:', err);
     toast.error('객관식 문제를 불러오지 못했습니다.');
@@ -256,11 +270,19 @@ const handleSelectProblem = (problem) => {
 
 const handleMoveProblem = async (problemId, direction) => {
   if (!isOrderModeAvailable) {
-    toast.warning('문제 순서 변경은 검색/필터를 해제한 전체 목록에서만 가능합니다.');
+    toast.warning('문제 순서 변경은 검색/난이도 필터를 해제한 상태에서 가능합니다.');
     return;
   }
 
-  const currentIndex = problems.findIndex(
+  const targetProblems = sortProblemsByDisplayOrder(
+    selectedCategoryId === 'all'
+      ? problems
+      : problems.filter(
+          (problem) => String(problem.categoryId) === String(selectedCategoryId)
+        )
+  );
+
+  const currentIndex = targetProblems.findIndex(
     (problem) => String(problem.id) === String(problemId)
   );
 
@@ -268,25 +290,43 @@ const handleMoveProblem = async (problemId, direction) => {
 
   const nextIndex = currentIndex + direction;
 
-  if (nextIndex < 0 || nextIndex >= problems.length) return;
+  if (nextIndex < 0 || nextIndex >= targetProblems.length) return;
 
-  const reordered = [...problems];
+  const reorderedTarget = [...targetProblems];
 
-  const temp = reordered[currentIndex];
-  reordered[currentIndex] = reordered[nextIndex];
-  reordered[nextIndex] = temp;
+  const temp = reorderedTarget[currentIndex];
+  reorderedTarget[currentIndex] = reorderedTarget[nextIndex];
+  reorderedTarget[nextIndex] = temp;
 
-  const orderedProblems = reordered.map((problem, index) => ({
+  const orderedTarget = reorderedTarget.map((problem, index) => ({
     ...problem,
     displayOrder: index + 1,
   }));
 
-  setProblems(orderedProblems);
+  const orderMap = new Map(
+    orderedTarget.map((problem) => [
+      String(problem.id),
+      problem.displayOrder,
+    ])
+  );
+
+  const nextProblems = sortProblemsByDisplayOrder(
+    problems.map((problem) =>
+      orderMap.has(String(problem.id))
+        ? {
+            ...problem,
+            displayOrder: orderMap.get(String(problem.id)),
+          }
+        : problem
+    )
+  );
+
+  setProblems(nextProblems);
 
   setSelectedProblem((prev) => {
     if (!prev) return prev;
 
-    const updated = orderedProblems.find(
+    const updated = nextProblems.find(
       (problem) => String(problem.id) === String(prev.id)
     );
 
@@ -295,7 +335,7 @@ const handleMoveProblem = async (problemId, direction) => {
 
   try {
     await updateExamOrder(
-      orderedProblems.map((problem) => ({
+      orderedTarget.map((problem) => ({
         id: problem.id,
         displayOrder: problem.displayOrder,
       }))
@@ -634,6 +674,60 @@ toast.success('객관식 문제가 수정되었습니다.');
   }
 };
 
+const handleMoveObjectiveQuestion = async (questionId, direction) => {
+  if (!selectedCategoryId || selectedCategoryId === 'all') {
+    toast.warning('객관식 순서 변경은 특정 시험 폴더를 선택했을 때 가능합니다.');
+    return;
+  }
+
+  if (isObjectiveEditing) {
+    toast.warning('객관식 수정 중에는 순서 변경을 할 수 없습니다.');
+    return;
+  }
+
+  const orderedQuestions = sortObjectiveQuestionsByDisplayOrder(objectiveQuestions);
+
+  const currentIndex = orderedQuestions.findIndex(
+    (question) => String(question.id) === String(questionId)
+  );
+
+  if (currentIndex === -1) return;
+
+  const nextIndex = currentIndex + direction;
+
+  if (nextIndex < 0 || nextIndex >= orderedQuestions.length) return;
+
+  const reordered = [...orderedQuestions];
+
+  const temp = reordered[currentIndex];
+  reordered[currentIndex] = reordered[nextIndex];
+  reordered[nextIndex] = temp;
+
+  const nextQuestions = reordered.map((question, index) => ({
+    ...question,
+    displayOrder: index + 1,
+  }));
+
+  setObjectiveQuestions(nextQuestions);
+
+  setSelectedObjectiveQuestionId((prev) => prev);
+
+  try {
+    await updateObjectiveQuestionOrder(
+      nextQuestions.map((question) => ({
+        id: question.id,
+        displayOrder: question.displayOrder,
+      }))
+    );
+
+    toast.success('객관식 문제 순서가 저장되었습니다.');
+  } catch (err) {
+    console.error('객관식 문제 순서 변경 실패:', err);
+    toast.error('객관식 문제 순서 저장에 실패했습니다. 다시 불러옵니다.');
+    fetchObjectiveQuestions(selectedCategoryId);
+  }
+};
+
 const handleDeleteObjectiveQuestion = async (questionId) => {
   const ok = window.confirm('이 객관식 문제를 삭제하시겠습니까?');
   if (!ok) return;
@@ -676,9 +770,9 @@ const handleDeleteObjectiveQuestion = async (questionId) => {
             </span>
           </div>
 
-	<p className="admin-exam-order-help">
-  	문제 순서 변경은 검색/필터를 해제한 전체 목록 상태에서 ↑ / ↓ 버튼으로 가능합니다.
-	</p>
+<p className="admin-exam-order-help">
+  문제 순서 변경은 검색/난이도 필터를 해제한 상태에서 가능합니다. 전체 또는 특정 시험 폴더 기준으로 순서를 변경할 수 있습니다.
+</p>
 
           <div className="admin-exam-toolbar">
             <input
@@ -1192,11 +1286,37 @@ onChange={(e) => {
                       onClick={() => handleSelectObjectiveQuestion(question)}
                     >
                       <div className="admin-exam-objective-card-top">
-                        <strong>객관식 #{index + 1}</strong>
-                        <span>{question.point ?? 0}점</span>
-                      </div>
+  <strong>객관식 #{index + 1}</strong>
 
-                      <p>{question.title}</p>
+  <div
+    className="admin-exam-order-actions"
+    onClick={(e) => e.stopPropagation()}
+  >
+    <button
+      type="button"
+      className="admin-exam-order-btn"
+      onClick={() => handleMoveObjectiveQuestion(question.id, -1)}
+      disabled={isObjectiveEditing || index === 0}
+      title="위로 이동"
+    >
+      ↑
+    </button>
+
+    <button
+      type="button"
+      className="admin-exam-order-btn"
+      onClick={() => handleMoveObjectiveQuestion(question.id, 1)}
+      disabled={isObjectiveEditing || index === objectiveQuestions.length - 1}
+      title="아래로 이동"
+    >
+      ↓
+    </button>
+  </div>
+
+  <span>{question.point ?? 0}점</span>
+</div>
+
+<p>{question.title}</p>
                     </div>
                   ))}
                 </div>

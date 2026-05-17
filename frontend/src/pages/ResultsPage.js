@@ -180,24 +180,31 @@ const resultList = useMemo(() => {
         submission.earnedPoint ?? (isCorrect ? point : 0)
       );
 
-      return {
-        id: submission.id,
-        examId: submission.examId,
-        categoryId: submissionCategoryId,
-        title: problem?.title || `코딩 문제 ${submission.examId}`,
-        description: problem?.description || '',
-        difficulty: problem?.difficulty || 'easy',
-        submitted: true,
-        isCorrect,
-        point,
-        earnedPoint,
-        errorType: submission.status ?? null,
-        summary: submission.aiSummary ?? '',
-        wrongReason: submission.aiWrongReason ?? '',
-        solutionDirection: submission.aiSolutionDirection ?? '',
-        improvement: submission.aiImprovement ?? '',
-        submitTime: submission.submitTime ?? null,
-      };
+return {
+  id: submission.id,
+  examId: submission.examId,
+  categoryId: submissionCategoryId,
+  title: problem?.title || `코딩 문제 ${submission.examId}`,
+  description: problem?.description || '',
+  difficulty: problem?.difficulty || 'easy',
+  submitted: true,
+  isCorrect,
+  point,
+  earnedPoint,
+  language: submission.language || '',
+  submittedCode:
+    submission.code ||
+    submission.submittedCode ||
+    submission.studentCode ||
+    submission.sourceCode ||
+    '',
+  errorType: submission.status ?? null,
+  summary: submission.aiSummary ?? '',
+  wrongReason: submission.aiWrongReason ?? '',
+  solutionDirection: submission.aiSolutionDirection ?? '',
+  improvement: submission.aiImprovement ?? '',
+  submitTime: submission.submitTime ?? null,
+};
     })
     .filter((item) =>
       selectedCategoryId
@@ -393,18 +400,31 @@ const handleDownloadResultsText = () => {
     `총점: ${stats.totalScore}/${stats.maxScore}`,
     '',
     '[코딩 문제 결과]',
-    ...(resultList.length === 0
-      ? ['제출한 코딩 문제가 없습니다.']
-      : resultList.flatMap((item, index) => [
-          `${index + 1}. ${item.title}`,
-          `   결과: ${item.isCorrect ? '정답' : '오답'}`,
-          `   점수: ${item.earnedPoint}/${item.point}`,
-          `   오류유형: ${item.errorType || '없음'}`,
-          `   요약: ${item.summary || '-'}`,
-          `   오류 원인: ${item.wrongReason || '-'}`,
-          `   해결 방향: ${item.solutionDirection || '-'}`,
-          `   개선 피드백: ${item.improvement || '-'}`,
-        ])),
+...(resultList.length === 0
+  ? ['제출한 코딩 문제가 없습니다.']
+  : resultList.flatMap((item, index) => {
+      const codeLines = item.submittedCode
+        ? item.submittedCode.split('\n').map((line) => `   ${line}`)
+        : ['   제출 코드가 없습니다.'];
+
+      return [
+        `${index + 1}. ${item.title}`,
+        `   결과: ${item.isCorrect ? '정답' : '오답'}`,
+        `   점수: ${item.earnedPoint}/${item.point}`,
+        `   제출 언어: ${item.language || '-'}`,
+        `   오류유형: ${item.errorType || '없음'}`,
+        `   요약: ${item.summary || '-'}`,
+        `   오류 원인: ${item.wrongReason || '-'}`,
+        `   해결 방향: ${item.solutionDirection || '-'}`,
+        `   개선 피드백: ${item.improvement || '-'}`,
+        '',
+        '   제출 코드:',
+        '   ----------------------------------------',
+        ...codeLines,
+        '   ----------------------------------------',
+        '',
+      ];
+    })),
     '',
     '[객관식 문제 결과]',
     ...(objectiveResultList.length === 0
@@ -658,6 +678,16 @@ return (
                 {item.isCorrect ? '정답' : '오답'}
               </div>
             </div>
+
+<div className="submitted-code-box">
+  <div className="submitted-code-title">
+    제출 코드 {item.language ? `(${item.language})` : ''}
+  </div>
+
+  <pre className="submitted-code-block">
+    {item.submittedCode || '제출 코드가 없습니다.'}
+  </pre>
+</div>
 
             <div className="result-ai-box">
               <p><strong>요약:</strong> {item.summary || '-'}</p>

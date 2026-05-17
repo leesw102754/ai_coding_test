@@ -160,18 +160,35 @@ useEffect(() => {
 
 const handleReanalyzeAllWithAi = async () => {
   const confirmed = window.confirm(
-    'AI 서버가 켜져 있어야 합니다.\n현재 저장된 제출 코드를 AI로 다시 분석하시겠습니까?'
+    [
+      'AI 서버가 켜져 있어야 합니다.',
+      '정답 제출과 이미 AI 피드백이 있는 제출은 자동으로 제외됩니다.',
+      '',
+      `대상 범위: ${selectedCategoryTitle}`,
+      'AI 피드백을 생성하시겠습니까?',
+    ].join('\n')
   );
 
-  if (!confirmed) return;
+  if (!confirmed) {
+    return;
+  }
 
   try {
     setIsReanalyzing(true);
 
-    const result = await reanalyzeAllSubmissionsWithAi();
+    const result = await reanalyzeAllSubmissionsWithAi(selectedCategoryId);
 
     alert(
-      `AI 피드백 재생성 완료\n성공: ${result.successCount}건\n실패: ${result.failCount}건`
+      [
+        'AI 피드백 재생성 완료',
+        `분석 대상: ${result.analyzedTargetCount ?? 0}건`,
+        `성공: ${result.successCount ?? 0}건`,
+        `실패: ${result.failCount ?? 0}건`,
+        `건너뜀: ${result.skippedCount ?? 0}건`,
+        `- 정답 제출 제외: ${result.skippedAcceptedCount ?? 0}건`,
+        `- 기존 피드백 보유: ${result.skippedAlreadyFeedbackCount ?? 0}건`,
+        `- 정보 부족: ${result.skippedInvalidCount ?? 0}건`,
+      ].join('\n')
     );
 
     await fetchSubmissions();
@@ -185,6 +202,7 @@ const handleReanalyzeAllWithAi = async () => {
 
     const message =
       err.response?.data?.message ||
+      err.message ||
       'AI 피드백 재생성 중 오류가 발생했습니다. AI 서버가 켜져 있는지 확인하세요.';
 
     alert(message);
@@ -192,6 +210,7 @@ const handleReanalyzeAllWithAi = async () => {
     setIsReanalyzing(false);
   }
 };
+
 
 const examPointMap = useMemo(() => {
   const map = new Map();

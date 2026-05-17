@@ -89,8 +89,13 @@ export const reanalyzeSubmissionWithAi = async (submissionId) => {
   return res.data;
 };
 
-export const reanalyzeAllSubmissionsWithAi = async () => {
-  const res = await API.post('/submissions/reanalyze-ai');
+export const reanalyzeAllSubmissionsWithAi = async (categoryId = 'all') => {
+  const config =
+    categoryId && categoryId !== 'all'
+      ? { params: { categoryId } }
+      : {};
+
+  const res = await API.post('/submissions/reanalyze-ai', null, config);
   return res.data;
 };
 
@@ -190,5 +195,10 @@ export const submitBulkExam = async (data) => {
 
 export const updateCategory = async (categoryId, data) => {
   const res = await API.patch(`/categories/${categoryId}`, data);
+  return res.data;
+};
+
+export const updateObjectiveQuestionOrder = async (items) => {
+  const res = await API.patch('/objective/questions/reorder/bulk', items);
   return res.data;
 };

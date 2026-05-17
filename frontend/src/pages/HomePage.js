@@ -7,24 +7,6 @@ import {
 } from '../api/problemApi';
 import './HomePage.css';
 
-const difficultyLabel = {
-  easy: '쉬움',
-  medium: '보통',
-  hard: '어려움',
-  쉬움: '쉬움',
-  보통: '보통',
-  어려움: '어려움',
-};
-
-const difficultyClass = {
-  easy: 'tag-easy',
-  medium: 'tag-medium',
-  hard: 'tag-hard',
-  쉬움: 'tag-easy',
-  보통: 'tag-medium',
-  어려움: 'tag-hard',
-};
-
 const isTutorialCategory = (category) => {
   return String(category?.title || '').includes('튜토리얼');
 };
@@ -55,7 +37,6 @@ export default function HomePage() {
   const isAdmin = user?.role === 'ADMIN';
 
   const [categories, setCategories] = useState([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
 
   const currentStudentId =
     user?.studentId ||
@@ -109,9 +90,35 @@ const visibleCategories = useMemo(() => {
   return [tutorialGuideCategory, examMonitorGuideCategory, ...normalCategories];
 }, [categories, isAdmin]);
 
-const filteredCategories = visibleCategories.filter((cat) =>
-  String(cat.title || '').toLowerCase().includes(search.toLowerCase())
-);
+const filteredCategories = useMemo(() => {
+  const keyword = search.toLowerCase().trim();
+  const safeCategoryStats = Array.isArray(categoryStats) ? categoryStats : [];
+
+  return visibleCategories.filter((cat) => {
+    const title = String(cat.title || '').toLowerCase();
+    const matchesSearch = title.includes(keyword);
+
+    const isGuideCard =
+      cat.isTutorialGuide === true ||
+      cat.isExamMonitorGuide === true;
+
+    if (isGuideCard) {
+      return filter === 'all' && matchesSearch;
+    }
+
+    const stat = safeCategoryStats.find(
+      (item) => String(item.id) === String(cat.id)
+    );
+
+    const matchesFilter =
+      filter === 'all' ||
+      (filter === 'solved' && stat?.completed === true) ||
+      (filter === 'unsolved' && (stat?.submittedCount ?? 0) === 0);
+
+    return matchesSearch && matchesFilter;
+  });
+}, [visibleCategories, categoryStats, search, filter]);
+
 
 const mySubmissions = useMemo(() => {
   return submissions.filter((s) => {
@@ -159,27 +166,6 @@ const categoryStats = useMemo(() => {
   });
 }, [categories, problems, mySubmissions]);
 
-
-  const problemsWithStatus = useMemo(() => {
-    return problems.map((p) => {
-      const problemSubmissions = mySubmissions.filter(
-        (s) => String(s.examId) === String(p.id)
-      );
-
-      const submitted = problemSubmissions.length > 0;
-
-      const solved = problemSubmissions.some((s) => {
-        return (s.correct ?? s.isCorrect ?? false) === true;
-      });
-
-      return {
-        ...p,
-        submitted,
-        solved,
-      };
-    });
-  }, [problems, mySubmissions]);
-
 const handleRefresh = async () => {
   if (isRefreshing) return;
 
@@ -219,28 +205,6 @@ const computedStats = {
 
   totalSubmissions: mySubmissions.length,
 };
-
-  const filtered = problemsWithStatus.filter((p) => {
-    const title = p.title || '';
-    const tags = p.tags || [];
-
-    const matchSearch =
-      title.toLowerCase().includes(search.toLowerCase()) ||
-      tags.some((t) => String(t).toLowerCase().includes(search.toLowerCase()));
-
-    const matchFilter =
-      filter === 'all' ||
-      (filter === 'easy' &&
-        (p.difficulty === 'easy' || p.difficulty === '쉬움')) ||
-      (filter === 'medium' &&
-        (p.difficulty === 'medium' || p.difficulty === '보통')) ||
-      (filter === 'hard' &&
-        (p.difficulty === 'hard' || p.difficulty === '어려움')) ||
-      (filter === 'solved' && p.solved) ||
-      (filter === 'unsolved' && !p.submitted);
-
-    return matchSearch && matchFilter;
-  });
 
   return (
     <div className="home-page">
@@ -331,47 +295,46 @@ const computedStats = {
             </div>
           </div>
             <div className="sidebar-section">
-              <h3 className="sidebar-heading">통계</h3>
+  <h3 className="sidebar-heading">통계</h3>
 
-              <div className="stats-summary">
-                <div className="stats-summary-item">
-                  
-                  <div className="stats-summary-value">
-                    {computedStats.completedExams}
-                  </div>
-                  <div className="stats-summary-label">
-                    완료 시험
-                  </div>
-                </div>
+  <div className="stats-summary">
+    <div className="stats-summary-item">
+      <div className="stats-summary-value">
+        {computedStats.completedExams}
+      </div>
+      <div className="stats-summary-label">
+        완료 시험
+      </div>
+    </div>
 
-                <div className="stats-summary-item">
-                  <div className="stats-summary-value">
-                    {computedStats.totalExams}
-                  </div>
-                  <div className="stats-summary-label">
-                    전체 시험
-                  </div>
-                </div>
+    <div className="stats-summary-item">
+      <div className="stats-summary-value">
+        {computedStats.inProgressExams}
+      </div>
+      <div className="stats-summary-label">
+        진행 중
+      </div>
+    </div>
 
-                <div className="stats-summary-item">
-                  <div className="stats-summary-value">
-                    {computedStats.totalSolvedProblems}
-                  </div>
-                  <div className="stats-summary-label">
-                    푼 문제
-                  </div>
-                </div>
+    <div className="stats-summary-item">
+      <div className="stats-summary-value">
+        {computedStats.totalProblems}
+      </div>
+      <div className="stats-summary-label">
+        전체 문제
+      </div>
+    </div>
 
-                <div className="stats-summary-item">
-                  <div className="stats-summary-value">
-                    {computedStats.totalSubmissions}
-                  </div>
-                  <div className="stats-summary-label">
-                    전체 제출
-                  </div>
-                </div>
-              </div>
-            </div>
+    <div className="stats-summary-item">
+      <div className="stats-summary-value">
+        {computedStats.totalSubmissions}
+      </div>
+      <div className="stats-summary-label">
+        전체 제출
+      </div>
+    </div>
+  </div>
+</div>
         </aside>
 
         <main className="problem-area">

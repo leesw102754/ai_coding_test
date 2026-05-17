@@ -1,5 +1,7 @@
 package com.example.capstone.controller;
 
+import java.util.Comparator;
+import java.util.Map;
 import com.example.capstone.repository.ObjectiveSubmissionRepository;
 import com.example.capstone.dto.AiObjectiveQuestionRequest;
 import com.example.capstone.dto.AiObjectiveQuestionResponse;
@@ -22,6 +24,36 @@ public class ObjectiveQuestionController {
     private final ObjectiveSubmissionRepository objectiveSubmissionRepository;
     private final ObjectiveQuestionRepository objectiveQuestionRepository;
     private final AiService aiService;
+
+private List<ObjectiveQuestion> sortObjectiveQuestions(List<ObjectiveQuestion> questions) {
+    return questions.stream()
+            .sorted(
+                    Comparator
+                            .comparing((ObjectiveQuestion question) ->
+                                    question.getDisplayOrder() == null
+                                            ? Integer.MAX_VALUE
+                                            : question.getDisplayOrder()
+                            )
+                            .thenComparing(question ->
+                                    question.getId() == null
+                                            ? Long.MAX_VALUE
+                                            : question.getId()
+                            )
+            )
+            .toList();
+}
+
+private Integer getNextObjectiveDisplayOrder(Long categoryId) {
+    List<ObjectiveQuestion> questions = categoryId == null
+            ? objectiveQuestionRepository.findAll()
+            : objectiveQuestionRepository.findByCategoryId(categoryId);
+
+    return questions.stream()
+            .map(ObjectiveQuestion::getDisplayOrder)
+            .filter(order -> order != null)
+            .max(Integer::compareTo)
+            .orElse(0) + 1;
+}
 
     @PostMapping("/questions")
     public ObjectiveQuestion createQuestion(@RequestBody ObjectiveQuestion question) {
@@ -73,20 +105,24 @@ public class ObjectiveQuestionController {
             question.setExplanation(question.getExplanation().trim());
         }
 
-        question.setCreatedAt(LocalDateTime.now());
+if (question.getDisplayOrder() == null) {
+    question.setDisplayOrder(getNextObjectiveDisplayOrder(question.getCategoryId()));
+}
 
-        return objectiveQuestionRepository.save(question);
+question.setCreatedAt(LocalDateTime.now());
+
+return objectiveQuestionRepository.save(question);
     }
 
-    @GetMapping("/questions")
-    public List<ObjectiveQuestion> getQuestions() {
-        return objectiveQuestionRepository.findAll();
-    }
+@GetMapping("/questions")
+public List<ObjectiveQuestion> getQuestions() {
+    return sortObjectiveQuestions(objectiveQuestionRepository.findAll());
+}
 
-    @GetMapping("/questions/category/{categoryId}")
-    public List<ObjectiveQuestion> getQuestionsByCategory(@PathVariable Long categoryId) {
-        return objectiveQuestionRepository.findByCategoryId(categoryId);
-    }
+@GetMapping("/questions/category/{categoryId}")
+public List<ObjectiveQuestion> getQuestionsByCategory(@PathVariable Long categoryId) {
+    return sortObjectiveQuestions(objectiveQuestionRepository.findByCategoryId(categoryId));
+}
 
     @GetMapping("/questions/{id}")
     public ObjectiveQuestion getQuestion(@PathVariable Long id) {
@@ -170,11 +206,37 @@ public ObjectiveQuestion updateQuestion(
         question.setPoint(request.getPoint());
     }
 
+if (request.getDisplayOrder() != null) {
+    question.setDisplayOrder(request.getDisplayOrder());
+}
+
     if (request.getSource() != null && !request.getSource().isBlank()) {
         question.setSource(request.getSource().trim());
     }
 
+
+
     return objectiveQuestionRepository.save(question);
+}
+
+@Transactional
+@PatchMapping("/questions/reorder/bulk")
+public List<ObjectiveQuestion> reorderObjectiveQuestions(
+        @RequestBody List<ObjectiveQuestion> requests
+) {
+    for (ObjectiveQuestion request : requests) {
+        if (request.getId() == null || request.getDisplayOrder() == null) {
+            continue;
+        }
+
+        ObjectiveQuestion question = objectiveQuestionRepository.findById(request.getId())
+                .orElseThrow(() -> new RuntimeException("객관식 문제를 찾을 수 없습니다."));
+
+        question.setDisplayOrder(request.getDisplayOrder());
+        objectiveQuestionRepository.save(question);
+    }
+
+    return sortObjectiveQuestions(objectiveQuestionRepository.findAll());
 }
 
 @Transactional
