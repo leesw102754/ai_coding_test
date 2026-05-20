@@ -612,3 +612,8 @@
   font-size: 0.78rem;
   color: var(--text-muted);
 }
+
+.category-progress-detail {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}

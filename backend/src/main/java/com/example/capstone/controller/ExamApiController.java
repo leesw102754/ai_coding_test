@@ -1,5 +1,7 @@
 package com.example.capstone.controller;
 
+
+import java.util.concurrent.CopyOnWriteArrayList;
 import com.example.capstone.dto.AiAnalyzeResponse;
 import com.example.capstone.dto.AiProblemDraftRequest;
 import com.example.capstone.dto.AiProblemDraftResponse;
@@ -8,6 +10,7 @@ import com.example.capstone.dto.AiTestCaseRecommendResponse;
 import com.example.capstone.dto.BulkSubmissionItem;
 import com.example.capstone.dto.BulkSubmissionRequest;
 import com.example.capstone.dto.BulkSubmissionResultItem;
+import com.example.capstone.dto.ExamWarningRequest;
 import com.example.capstone.dto.JudgeResult;
 import com.example.capstone.entity.*;
 import com.example.capstone.repository.*;
@@ -34,6 +37,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ExamApiController {
 
+    private final List<Map<String, Object>> warningNotices = new CopyOnWriteArrayList<>();
     private final ExamRepository examRepository;
     private final SubmissionRepository submissionRepository;
     private final TestCaseRepository testCaseRepository;
@@ -862,20 +866,44 @@ private void applyAiResponseToSubmission(Submission submission, AiAnalyzeRespons
                     "- **구독 경로(Subscribe)**: `/topic/admin` \n" +
                     "- **설명**: 학생이 시험 화면을 이탈할 때 호출하세요. 호출 시 관리자에게 즉시 메시지가 전송됩니다."
     )
-    @PostMapping("/exams/warning")
-    public ResponseEntity<?> reportWarning(@RequestBody com.example.capstone.dto.ExamWarningRequest request) {
-        String studentId = request.getStudentId();
-        String studentName = request.getStudentName();
 
-        Map<String, Object> notice = new HashMap<>();
-        notice.put("type", "WARNING");
-        notice.put("studentId", studentId);
-        notice.put("studentName", studentName);
-        notice.put("message", String.format("[이탈 알림] %s(%s) 학생이 시험 창을 벗어났습니다!", studentName, studentId));
-        notice.put("time", LocalDateTime.now());
+@PostMapping("/exams/warning")
+public ResponseEntity<?> reportWarning(@RequestBody ExamWarningRequest request) {
+    String studentId = request.getStudentId();
+    String studentName = request.getStudentName();
 
-        messagingTemplate.convertAndSend("/topic/admin", (Object) notice);
+    Map<String, Object> notice = new HashMap<>();
+    notice.put("type", "WARNING");
+    notice.put("studentId", studentId);
+    notice.put("studentName", studentName);
+    notice.put(
+            "message",
+            String.format("[이탈 알림] %s(%s) 학생이 시험 창을 벗어났습니다!", studentName, studentId)
+    );
+    notice.put("time", LocalDateTime.now());
 
-        return ResponseEntity.ok(Map.of("message", "관리자에게 실시간 알림을 보냈습니다."));
+    warningNotices.add(0, notice);
+
+    if (warningNotices.size() > 100) {
+        warningNotices.remove(warningNotices.size() - 1);
     }
+
+    // 기존 WebSocket 기능 유지
+    messagingTemplate.convertAndSend("/topic/admin", (Object) notice);
+
+    return ResponseEntity.ok(Map.of("message", "관리자에게 실시간 알림을 보냈습니다."));
+}
+
+@GetMapping("/exams/warnings")
+public ResponseEntity<?> getExamWarnings() {
+    return ResponseEntity.ok(warningNotices);
+}
+
+@DeleteMapping("/exams/warnings")
+public ResponseEntity<?> clearExamWarnings() {
+    warningNotices.clear();
+
+    return ResponseEntity.ok(Map.of("message", "이탈 알림을 비웠습니다."));
+}
+
 }

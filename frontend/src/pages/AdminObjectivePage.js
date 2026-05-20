@@ -289,6 +289,61 @@ setMessage('객관식 문제가 등록되었습니다.');
   }
 };
 
+const objectiveDifficultyLabelMap = {
+  easy: '쉬움',
+  medium: '보통',
+  hard: '어려움',
+};
+
+const infoProcessingSubTopics = [
+  '소프트웨어 설계 - 요구사항 확인',
+  '소프트웨어 설계 - UML과 모델링',
+  '소프트웨어 설계 - 화면 설계',
+  '소프트웨어 개발 - 자료구조',
+  '소프트웨어 개발 - 테스트 기법',
+  '소프트웨어 개발 - 형상관리',
+  '데이터베이스 구축 - 정규화',
+  '데이터베이스 구축 - SQL',
+  '데이터베이스 구축 - 트랜잭션',
+  '프로그래밍 언어 활용 - Python 문법',
+  '프로그래밍 언어 활용 - Java 문법',
+  '프로그래밍 언어 활용 - C언어 포인터',
+  '정보시스템 구축관리 - 보안',
+  '정보시스템 구축관리 - 네트워크',
+  '정보시스템 구축관리 - 운영체제',
+];
+
+const buildObjectiveBulkTopic = (baseTopic, index, difficulty) => {
+  const cleanTopic = baseTopic.trim();
+  const difficultyLabel = objectiveDifficultyLabelMap[difficulty] || difficulty;
+
+  if (
+    cleanTopic === '정보처리기사' ||
+    cleanTopic === '정처기' ||
+    cleanTopic.toLowerCase() === 'information processing engineer'
+  ) {
+    const subTopic = infoProcessingSubTopics[index % infoProcessingSubTopics.length];
+
+    return [
+      `정보처리기사 필기 시험 대비 객관식 문제를 생성해줘.`,
+      `세부 주제는 "${subTopic}"로 해줘.`,
+      `난이도는 ${difficultyLabel} 수준으로 해줘.`,
+      `문제는 실제 기출 스타일처럼 개념 확인형으로 만들어줘.`,
+      `보기 4개는 자연스럽고 서로 중복되지 않게 만들어줘.`,
+      `정답 번호는 반드시 1, 2, 3, 4 중 하나로 해줘.`,
+      `${index + 1}번째 문제이며 이전 문제와 중복되지 않게 해줘.`,
+    ].join(' ');
+  }
+
+  return [
+    `${cleanTopic} 주제로 객관식 문제를 생성해줘.`,
+    `난이도는 ${difficultyLabel} 수준으로 해줘.`,
+    `보기 4개는 자연스럽고 서로 중복되지 않게 만들어줘.`,
+    `정답 번호는 반드시 1, 2, 3, 4 중 하나로 해줘.`,
+    `${index + 1}번째 문제이며 이전 문제와 중복되지 않게 해줘.`,
+  ].join(' ');
+};
+
 const handleBulkAiGenerate = async () => {
   if (!selectedCategoryId) {
     setMessage('시험 폴더를 먼저 선택하세요.');
@@ -346,8 +401,9 @@ const handleBulkAiGenerate = async () => {
     ...Array.from({ length: hardCount }, () => ({ difficulty: 'hard' })),
   ];
 
-  let successCount = 0;
-  let failCount = 0;
+let successCount = 0;
+let failCount = 0;
+const failMessages = [];
 
   try {
     setBulkLoading(true);
@@ -357,12 +413,18 @@ const handleBulkAiGenerate = async () => {
       const job = jobs[i];
 
       try {
-        const result = await generateAiObjectiveQuestion({
-          categoryId: Number(selectedCategoryId),
-          topic: `${bulkTopic.trim()} / ${i + 1}번째 문제 / 이전 문제와 중복되지 않게 생성`,
-          difficulty: job.difficulty,
-          point: pointValue,
-        });
+const generatedTopic = buildObjectiveBulkTopic(
+  bulkTopic,
+  i,
+  job.difficulty
+);
+
+const result = await generateAiObjectiveQuestion({
+  categoryId: Number(selectedCategoryId),
+  topic: generatedTopic,
+  difficulty: job.difficulty,
+  point: pointValue,
+});
 
         const payload = {
           categoryId: Number(selectedCategoryId),
@@ -392,10 +454,20 @@ const handleBulkAiGenerate = async () => {
 
         await createObjectiveQuestion(payload);
         successCount += 1;
-      } catch (err) {
-        console.error('객관식 대량 생성 개별 실패:', err);
-        failCount += 1;
-      }
+} catch (err) {
+  console.error('객관식 대량 생성 개별 실패:', err);
+
+  failCount += 1;
+
+  failMessages.push(
+    `${i + 1}번째 문제 실패: ${
+      err.response?.data?.message ||
+      err.response?.data?.detail ||
+      err.message ||
+      '알 수 없는 오류'
+    }`
+  );
+}
 
       setMessage(
         `객관식 대량 생성 중... ${i + 1}/${jobs.length} 처리 완료`
@@ -404,9 +476,12 @@ const handleBulkAiGenerate = async () => {
 
     await loadQuestions(selectedCategoryId);
 
-    setMessage(
-      `객관식 대량 생성 완료: 성공 ${successCount}개, 실패 ${failCount}개`
-    );
+setMessage(
+  [
+    `객관식 대량 생성 완료: 성공 ${successCount}개, 실패 ${failCount}개`,
+    ...failMessages.slice(0, 5),
+  ].join('\n')
+);
   } catch (err) {
     console.error('객관식 대량 생성 실패:', err);
     setMessage('객관식 대량 생성 중 오류가 발생했습니다.');
@@ -432,6 +507,23 @@ const handleDelete = async (id) => {
 
   return (
     <div className="adminobjectivepage">
+{bulkLoading && (
+  <div className="ai-loading-overlay">
+    <div className="ai-loading-modal">
+      <div className="ai-loading-spinner" />
+
+      <h3>객관식 문제 대량 생성 중</h3>
+
+      <p>
+        AI가 객관식 문제를 생성하고 저장하는 중입니다.
+      </p>
+
+      <small>
+        문제 수에 따라 시간이 걸릴 수 있습니다. 잠시만 기다려 주세요.
+      </small>
+    </div>
+  </div>
+)}
       <div className="adminobjectivepage-inner">
 	<h2 className="adminobjectivepage-title">객관식 문제 등록</h2>
 	<p className="adminobjectivepage-subtitle">

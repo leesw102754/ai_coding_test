@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Client } from '@stomp/stompjs';
-import { getCategories, updateCategory } from '../api/problemApi';
+import {
+  getCategories,
+  updateCategory,
+  getExamWarnings,
+  clearExamWarnings,
+} from '../api/problemApi';
 import './AdminExamMonitorPage.css';
 
 const formatDateTime = (value) => {
@@ -102,38 +106,38 @@ useEffect(() => {
     fetchCategories();
   }, []);
 
-  useEffect(() => {
-    const client = new Client({
-      brokerURL: 'ws://localhost:8080/ws-api',
-      reconnectDelay: 3000,
-      onConnect: () => {
-        client.subscribe('/topic/admin', (message) => {
-          try {
-            const body = JSON.parse(message.body);
+useEffect(() => {
+  let alive = true;
 
-            setWarningLogs((prev) => [
-              {
-                id: Date.now(),
-                studentId: body.studentId || '-',
-                studentName: body.studentName || '-',
-                message: body.message || '학생이 시험 화면을 벗어났습니다.',
-                time: body.time || new Date().toISOString(),
-              },
-              ...prev,
-            ]);
-          } catch (err) {
-            console.error('부정행위 알림 파싱 실패:', err);
-          }
-        });
-      },
-    });
+  const fetchWarnings = async () => {
+    try {
+      const data = await getExamWarnings();
 
-    client.activate();
+      if (!alive) return;
 
-    return () => {
-      client.deactivate();
-    };
-  }, []);
+      setWarningLogs(
+        (data || []).map((item, index) => ({
+          id: item.id || `${item.time || Date.now()}-${index}`,
+          studentId: item.studentId || '-',
+          studentName: item.studentName || '-',
+          message: item.message || '학생이 시험 화면을 벗어났습니다.',
+          time: item.time || new Date().toISOString(),
+        }))
+      );
+    } catch (err) {
+      console.error('이탈 알림 조회 실패:', err);
+    }
+  };
+
+  fetchWarnings();
+
+  const timer = setInterval(fetchWarnings, 2000);
+
+  return () => {
+    alive = false;
+    clearInterval(timer);
+  };
+}, []);
 
 const getValidatedDuration = () => {
   const duration = Number(durationInput);
@@ -414,13 +418,21 @@ const end = new Date(start.getTime() + duration * 60 * 1000);
       <section className="monitor-card">
         <div className="warning-header">
           <h2>실시간 부정행위 / 이탈 알림</h2>
-          <button
-            type="button"
-            onClick={() => setWarningLogs([])}
-            className="clear-btn"
-          >
-            알림 비우기
-          </button>
+<button
+  type="button"
+  onClick={async () => {
+    try {
+      await clearExamWarnings();
+      setWarningLogs([]);
+    } catch (err) {
+      console.error('알림 비우기 실패:', err);
+      alert('알림 비우기에 실패했습니다.');
+    }
+  }}
+  className="clear-btn"
+>
+  알림 비우기
+</button>
         </div>
 
         {warningLogs.length === 0 ? (

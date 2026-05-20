@@ -1,5 +1,6 @@
 import os
 import json
+import random
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -14,6 +15,7 @@ from app.schemas import (
     GenerateObjectiveQuestionRequest,
     GenerateObjectiveQuestionResponse,
 )
+
 from app.prompt_builder import (
     build_analysis_prompt,
     build_testcase_generation_prompt,
@@ -147,6 +149,7 @@ OBJECTIVE_QUESTION_JSON_SCHEMA = {
         ]
     }
 }
+
 
 TESTCASE_JSON_SCHEMA = {
     "name": "testcase_generation_result",
@@ -447,6 +450,45 @@ def generate_problem_draft(data: GenerateProblemDraftRequest) -> GenerateProblem
 
     return GenerateProblemDraftResponse(**parsed)
 
+def shuffle_objective_choices(cleaned: dict) -> dict:
+    """
+    AI가 정답을 1번에 몰아주는 문제를 줄이기 위해
+    보기 4개를 섞고 correctAnswer를 다시 계산합니다.
+    """
+    try:
+        correct_answer = int(cleaned.get("correctAnswer", 1))
+    except Exception:
+        correct_answer = 1
+
+    if correct_answer not in [1, 2, 3, 4]:
+        correct_answer = 1
+
+    choices = [
+        {"text": cleaned.get("choice1", ""), "is_correct": correct_answer == 1},
+        {"text": cleaned.get("choice2", ""), "is_correct": correct_answer == 2},
+        {"text": cleaned.get("choice3", ""), "is_correct": correct_answer == 3},
+        {"text": cleaned.get("choice4", ""), "is_correct": correct_answer == 4},
+    ]
+
+    seed_text = "|".join([
+        str(cleaned.get("title", "")),
+        str(cleaned.get("description", "")),
+        str(cleaned.get("choice1", "")),
+        str(cleaned.get("choice2", "")),
+        str(cleaned.get("choice3", "")),
+        str(cleaned.get("choice4", "")),
+    ])
+
+    rng = random.Random(seed_text)
+    rng.shuffle(choices)
+
+    for idx, item in enumerate(choices, start=1):
+        cleaned[f"choice{idx}"] = item["text"]
+        if item["is_correct"]:
+            cleaned["correctAnswer"] = idx
+
+    return cleaned
+
 def normalize_objective_question_result(parsed: dict, data: GenerateObjectiveQuestionRequest) -> dict:
     allowed_difficulties = {"easy", "medium", "hard"}
 
@@ -507,6 +549,9 @@ def normalize_objective_question_result(parsed: dict, data: GenerateObjectiveQue
 
         seen.add(cleaned[key])
 
+    cleaned = shuffle_objective_choices(cleaned)
+
+    correct_answer = cleaned["correctAnswer"]
     correct_choice = cleaned.get(f"choice{correct_answer}", "")
 
     if correct_choice and correct_choice not in cleaned["explanation"]:
@@ -589,3 +634,4 @@ def generate_testcases(data: GenerateTestCasesRequest) -> GenerateTestCasesRespo
     parsed = json.loads(raw_text)
 
     return GenerateTestCasesResponse(**parsed)
+

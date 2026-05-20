@@ -559,6 +559,23 @@ setTestCases([]);
 
   return (
     <div className="admincodingpage">
+{bulkCodingLoading && (
+  <div className="ai-loading-overlay">
+    <div className="ai-loading-modal">
+      <div className="ai-loading-spinner" />
+
+      <h3>코딩 문제 대량 생성 중</h3>
+
+      <p>
+        AI가 코딩 문제와 테스트케이스를 생성하고 저장하는 중입니다.
+      </p>
+
+      <small>
+        문제 수에 따라 시간이 걸릴 수 있습니다. 잠시만 기다려 주세요.
+      </small>
+    </div>
+  </div>
+)}
       <div className="admincodingpage-inner">
         <h2 className="admincodingpage-title">코드형 문제 등록</h2>
         <p className="admincodingpage-subtitle">

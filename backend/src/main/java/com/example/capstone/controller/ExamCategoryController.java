@@ -1,5 +1,6 @@
 package com.example.capstone.controller;
 
+
 import com.example.capstone.repository.ObjectiveSubmissionRepository;
 import com.example.capstone.entity.Exam;
 import com.example.capstone.entity.ExamCategory;
@@ -21,13 +22,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ExamCategoryController {
 
-    private final ExamCategoryRepository categoryRepository;
-    private final ExamRepository examRepository;
-    private final SubmissionRepository submissionRepository;
-    private final TestCaseRepository testCaseRepository;
-    private final ObjectiveQuestionRepository objectiveQuestionRepository;
-    private final ObjectiveSubmissionRepository objectiveSubmissionRepository;
-
+private final ExamCategoryRepository categoryRepository;
+private final ExamRepository examRepository;
+private final SubmissionRepository submissionRepository;
+private final TestCaseRepository testCaseRepository;
+private final ObjectiveQuestionRepository objectiveQuestionRepository;
+private final ObjectiveSubmissionRepository objectiveSubmissionRepository;
 
     @GetMapping
     public List<ExamCategory> getCategories() {
@@ -82,10 +82,12 @@ public ExamCategory updateCategory(@PathVariable Long id, @RequestBody ExamCateg
             testCaseRepository.deleteByExamId(exam.getId());
         }
 
-        examRepository.deleteByCategoryId(id);
-	    objectiveSubmissionRepository.deleteByCategoryId(id);
-        objectiveQuestionRepository.deleteByCategoryId(id);
-        categoryRepository.deleteById(id);
+examRepository.deleteByCategoryId(id);
+
+objectiveSubmissionRepository.deleteByCategoryId(id);
+objectiveQuestionRepository.deleteByCategoryId(id);
+
+categoryRepository.deleteById(id);
 
         return id + "번 폴더와 내부 문제/테스트케이스/제출 내역이 모두 삭제되었습니다.";
     }

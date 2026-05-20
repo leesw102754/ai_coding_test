@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import './Header.css';
 import { useAuth } from '../context/AuthContext';
@@ -8,7 +8,22 @@ export default function Header() {
   const { theme, toggleTheme } = useTheme();
   const { user, setUser } = useAuth();
   const [openModal, setOpenModal] = useState(false);
+
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isSolvingPage =
+    location.pathname.startsWith('/problem') ||
+    location.pathname.startsWith('/objective-solve');
+
+  const handleLogoClick = () => {
+    if (isSolvingPage) {
+      alert('시험 풀이 중에는 홈으로 이동할 수 없습니다.');
+      return;
+    }
+
+    navigate('/');
+  };
 
   const logout = () => {
     Object.keys(sessionStorage).forEach((key) => {
@@ -39,10 +54,14 @@ export default function Header() {
   return (
     <header className="header">
       <div className="header-inner">
-        <Link to="/" className="header-logo">
-          <span className="logo-icon">&lt;/&gt;</span>
-          <span className="logo-text">CodeTest</span>
-        </Link>
+        <button
+  type="button"
+  className="header-logo"
+  onClick={handleLogoClick}
+>
+  <span className="logo-icon">&lt;/&gt;</span>
+  <span className="logo-text">CodeTest</span>
+</button>
 
         <div className="header-actions">
           <button

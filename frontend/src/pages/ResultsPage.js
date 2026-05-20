@@ -37,12 +37,25 @@ const savedUser = useMemo(() => {
   }
 }, []);
 
-const effectiveStudentId = user?.studentId || savedUser.studentId;
+const effectiveStudentId =
+  user?.studentId ||
+  user?.loginId ||
+  user?.username ||
+  user?.id ||
+  savedUser.studentId ||
+  savedUser.loginId ||
+  savedUser.username ||
+  savedUser.id ||
+  null;
+
 const effectiveStudentName =
   user?.name ||
   user?.studentName ||
+  user?.username ||
   savedUser.name ||
-  savedUser.studentName;
+  savedUser.studentName ||
+  savedUser.username ||
+  '-';
 
 const [mySubmissions, setMySubmissions] = useState([]);
 const [objectiveQuestions, setObjectiveQuestions] = useState([]);

@@ -410,18 +410,20 @@ const confirmExit = () => {
     return codeWithoutComments.length > 0;
   };
 
-  const runCode = async () => {
-  if (!hasWrittenSolution(code)) {
-    const message =
-      '실행할 코드가 없습니다. // ---------- 또는 # ---------- 사이에 풀이 코드를 작성해 주세요.';
+const runCode = async () => {
+if (!hasWrittenSolution(code)) {
+  const message =
+    '실행할 코드가 없습니다. // ---------- 또는 # ---------- 사이에 풀이 코드를 작성해 주세요.';
 
-    setOutput(message);
-    setTestResults([]);
-    toast.warning(message);
-    return;
-  }
+  setActiveTab('testcases');
+  setOutput(message);
+  setTestResults([]);
+  toast.warning(message);
+  return;
+}
 
   setIsRunning(true);
+  setActiveTab('testcases');
   setOutput('');
   setTestResults([]);
 

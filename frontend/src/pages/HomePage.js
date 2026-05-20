@@ -4,6 +4,8 @@ import { useProblem } from '../context/ProblemContext';
 import {
   getAllSubmissions,
   getCategories,
+  getObjectiveQuestions,
+  getObjectiveSubmissions,
 } from '../api/problemApi';
 import './HomePage.css';
 
@@ -25,9 +27,13 @@ const examMonitorGuideCategory = {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { problems, fetchProblems, loading } = useProblem();
+  const { problems, fetchProblems } = useProblem();
 
+  const [categories, setCategories] = useState([]);
   const [submissions, setSubmissions] = useState([]);
+  const [objectiveQuestions, setObjectiveQuestions] = useState([]);
+  const [objectiveSubmissions, setObjectiveSubmissions] = useState([]);
+
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -36,8 +42,6 @@ export default function HomePage() {
   const user = savedUser ? JSON.parse(savedUser) : null;
   const isAdmin = user?.role === 'ADMIN';
 
-  const [categories, setCategories] = useState([]);
-
   const currentStudentId =
     user?.studentId ||
     user?.loginId ||
@@ -45,13 +49,15 @@ export default function HomePage() {
     user?.id ||
     null;
 
-
-
-
-useEffect(() => {
-  fetchProblems();
-  fetchSubmissions();
-}, []);
+  const fetchCategoriesData = async () => {
+    try {
+      const data = await getCategories();
+      setCategories(data || []);
+    } catch (err) {
+      console.error('시험 폴더 조회 실패:', err);
+      setCategories([]);
+    }
+  };
 
   const fetchSubmissions = async () => {
     try {
@@ -63,178 +69,287 @@ useEffect(() => {
     }
   };
 
-  
+  const fetchObjectiveData = async () => {
+    try {
+      const [questionsData, submissionsData] = await Promise.all([
+        getObjectiveQuestions(),
+        getObjectiveSubmissions(),
+      ]);
 
-const fetchCategoriesData = async () => {
-  try {
-    const data = await getCategories();
-    setCategories(data);
-  } catch (err) {
-    console.error(err);
-  }
-};
+      setObjectiveQuestions(questionsData || []);
+      setObjectiveSubmissions(submissionsData || []);
+    } catch (err) {
+      console.error('객관식 데이터 조회 실패:', err);
+      setObjectiveQuestions([]);
+      setObjectiveSubmissions([]);
+    }
+  };
 
-useEffect(() => {
-  fetchCategoriesData();
-}, []);
+  useEffect(() => {
+    fetchProblems();
+    fetchCategoriesData();
+    fetchSubmissions();
+    fetchObjectiveData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-const visibleCategories = useMemo(() => {
-  const normalCategories = categories.filter(
-    (cat) => !isTutorialCategory(cat)
-  );
+  const visibleCategories = useMemo(() => {
+    const normalCategories = categories.filter(
+      (cat) => !isTutorialCategory(cat)
+    );
 
-  if (!isAdmin) {
-    return normalCategories;
-  }
-
-  return [tutorialGuideCategory, examMonitorGuideCategory, ...normalCategories];
-}, [categories, isAdmin]);
-
-const filteredCategories = useMemo(() => {
-  const keyword = search.toLowerCase().trim();
-  const safeCategoryStats = Array.isArray(categoryStats) ? categoryStats : [];
-
-  return visibleCategories.filter((cat) => {
-    const title = String(cat.title || '').toLowerCase();
-    const matchesSearch = title.includes(keyword);
-
-    const isGuideCard =
-      cat.isTutorialGuide === true ||
-      cat.isExamMonitorGuide === true;
-
-    if (isGuideCard) {
-      return filter === 'all' && matchesSearch;
+    if (!isAdmin) {
+      return normalCategories;
     }
 
-    const stat = safeCategoryStats.find(
-      (item) => String(item.id) === String(cat.id)
-    );
+    return [tutorialGuideCategory, examMonitorGuideCategory, ...normalCategories];
+  }, [categories, isAdmin]);
 
-    const matchesFilter =
-      filter === 'all' ||
-      (filter === 'solved' && stat?.completed === true) ||
-      (filter === 'unsolved' && (stat?.submittedCount ?? 0) === 0);
-
-    return matchesSearch && matchesFilter;
-  });
-}, [visibleCategories, categoryStats, search, filter]);
-
-
-const mySubmissions = useMemo(() => {
-  return submissions.filter((s) => {
-    return (
-      String(s.studentId) === String(user?.studentId) ||
-      String(s.userId) === String(user?.id) ||
-      String(s.memberId) === String(user?.id)
-    );
-  });
-}, [submissions, user]);
-
-const categoryStats = useMemo(() => {
-  return categories
-    .filter((cat) => !isTutorialCategory(cat))
-    .map((cat) => {
-    const categoryProblems = problems.filter(
-      (p) => String(p.categoryId) === String(cat.id)
-    );
-
-    const totalProblems = categoryProblems.length;
-
-    const solvedCount = categoryProblems.filter((problem) => {
-      return mySubmissions.some(
-        (s) =>
-          String(s.examId) === String(problem.id) &&
-          (s.correct ?? s.isCorrect) === true
+  const mySubmissions = useMemo(() => {
+    return submissions.filter((s) => {
+      return (
+        String(s.studentId) === String(currentStudentId) ||
+        String(s.userId) === String(user?.id) ||
+        String(s.memberId) === String(user?.id)
       );
-    }).length;
+    });
+  }, [submissions, currentStudentId, user]);
 
-    const submittedCount = categoryProblems.filter((problem) => {
-      return mySubmissions.some(
-        (s) => String(s.examId) === String(problem.id)
+  const myObjectiveSubmissions = useMemo(() => {
+    return objectiveSubmissions.filter((s) => {
+      return (
+        String(s.studentId) === String(currentStudentId) ||
+        String(s.userId) === String(user?.id) ||
+        String(s.memberId) === String(user?.id)
       );
-    }).length;
+    });
+  }, [objectiveSubmissions, currentStudentId, user]);
 
-    return {
-      ...cat,
-      totalProblems,
-      solvedCount,
-      submittedCount,
-      completed:
-        totalProblems > 0 &&
-        solvedCount === totalProblems,
-    };
-  });
-}, [categories, problems, mySubmissions]);
+  const categoryStats = useMemo(() => {
+    return categories
+      .filter((cat) => !isTutorialCategory(cat))
+      .map((cat) => {
+        const categoryProblems = problems.filter(
+          (p) => String(p.categoryId) === String(cat.id)
+        );
 
-const handleRefresh = async () => {
-  if (isRefreshing) return;
+        const categoryObjectiveQuestions = objectiveQuestions.filter(
+          (q) => String(q.categoryId) === String(cat.id)
+        );
 
-  try {
-    setIsRefreshing(true);
-    await fetchCategoriesData();
-    await fetchSubmissions();    // 기존 그대로
-  } finally {
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 500);
-  }
-};
+        const codingTotal = categoryProblems.length;
+        const objectiveTotal = categoryObjectiveQuestions.length;
+        const totalProblems = codingTotal + objectiveTotal;
 
-const computedStats = {
-  totalExams: categoryStats.length,
+        const codingSubmittedCount = categoryProblems.filter((problem) => {
+          return mySubmissions.some(
+            (s) => String(s.examId) === String(problem.id)
+          );
+        }).length;
 
-  completedExams: categoryStats.filter(
-    (c) => c.completed
-  ).length,
+        const codingSolvedCount = categoryProblems.filter((problem) => {
+          return mySubmissions.some(
+            (s) =>
+              String(s.examId) === String(problem.id) &&
+              (s.correct ?? s.isCorrect) === true
+          );
+        }).length;
 
-  inProgressExams: categoryStats.filter(
-    (c) =>
-      c.submittedCount > 0 &&
-      !c.completed
-  ).length,
+        const objectiveSubmittedCount = categoryObjectiveQuestions.filter(
+          (question) => {
+            return myObjectiveSubmissions.some(
+              (s) => String(s.questionId) === String(question.id)
+            );
+          }
+        ).length;
 
-  totalSolvedProblems: categoryStats.reduce(
-    (sum, c) => sum + c.solvedCount,
-    0
-  ),
+        const objectiveSolvedCount = categoryObjectiveQuestions.filter(
+          (question) => {
+            return myObjectiveSubmissions.some(
+              (s) =>
+                String(s.questionId) === String(question.id) &&
+                (s.correct ?? s.isCorrect) === true
+            );
+          }
+        ).length;
 
-  totalProblems: categoryStats.reduce(
-    (sum, c) => sum + c.totalProblems,
-    0
-  ),
+        const submittedCount = codingSubmittedCount + objectiveSubmittedCount;
+        const solvedCount = codingSolvedCount + objectiveSolvedCount;
 
-  totalSubmissions: mySubmissions.length,
-};
+        const progressRate =
+          totalProblems === 0
+            ? 0
+            : Math.round((submittedCount / totalProblems) * 100);
+
+        return {
+          ...cat,
+
+          codingTotal,
+          objectiveTotal,
+          totalProblems,
+
+          codingSubmittedCount,
+          objectiveSubmittedCount,
+          submittedCount,
+
+          codingSolvedCount,
+          objectiveSolvedCount,
+          solvedCount,
+
+          progressRate,
+
+          completed:
+            totalProblems > 0 &&
+            submittedCount === totalProblems,
+        };
+      });
+  }, [
+    categories,
+    problems,
+    objectiveQuestions,
+    mySubmissions,
+    myObjectiveSubmissions,
+  ]);
+
+  const filteredCategories = useMemo(() => {
+    const keyword = search.toLowerCase().trim();
+    const safeCategoryStats = Array.isArray(categoryStats) ? categoryStats : [];
+
+    return visibleCategories.filter((cat) => {
+      const title = String(cat.title || '').toLowerCase();
+      const matchesSearch = title.includes(keyword);
+
+      const isGuideCard =
+        cat.isTutorialGuide === true ||
+        cat.isExamMonitorGuide === true;
+
+      if (isGuideCard) {
+        return filter === 'all' && matchesSearch;
+      }
+
+      const stat = safeCategoryStats.find(
+        (item) => String(item.id) === String(cat.id)
+      );
+
+      const matchesFilter =
+        filter === 'all' ||
+        (filter === 'solved' && stat?.completed === true) ||
+        (filter === 'unsolved' && (stat?.submittedCount ?? 0) === 0);
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [visibleCategories, categoryStats, search, filter]);
+
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+
+    try {
+      setIsRefreshing(true);
+      await fetchProblems();
+      await fetchCategoriesData();
+      await fetchSubmissions();
+      await fetchObjectiveData();
+    } finally {
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 500);
+    }
+  };
+
+  const computedStats = {
+    totalExams: categoryStats.length,
+
+    completedExams: categoryStats.filter(
+      (c) => c.completed
+    ).length,
+
+    inProgressExams: categoryStats.filter(
+      (c) =>
+        c.submittedCount > 0 &&
+        !c.completed
+    ).length,
+
+    totalCompletedProblems: categoryStats.reduce(
+      (sum, c) => sum + c.submittedCount,
+      0
+    ),
+
+    totalProblems: categoryStats.reduce(
+      (sum, c) => sum + c.totalProblems,
+      0
+    ),
+
+    totalSubmissions:
+      mySubmissions.length + myObjectiveSubmissions.length,
+  };
 
   return (
     <div className="home-page">
       <section className="hero">
         <div className="hero-content">
           <div className="hero-network">
-            <svg className="network-svg" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid slice">
+            <svg
+              className="network-svg"
+              viewBox="0 0 800 200"
+              preserveAspectRatio="xMidYMid slice"
+            >
               <defs>
                 <radialGradient id="nodeGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="var(--accent-blue)" stopOpacity="0.6" />
-                  <stop offset="100%" stopColor="var(--accent-blue)" stopOpacity="0" />
+                  <stop
+                    offset="0%"
+                    stopColor="var(--accent-blue)"
+                    stopOpacity="0.6"
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor="var(--accent-blue)"
+                    stopOpacity="0"
+                  />
                 </radialGradient>
               </defs>
 
               {[
-                [100, 80], [200, 40], [320, 100], [450, 60], [560, 120], [680, 50], [750, 90],
-                [150, 150], [280, 160], [400, 140], [520, 170], [640, 140],
+                [100, 80],
+                [200, 40],
+                [320, 100],
+                [450, 60],
+                [560, 120],
+                [680, 50],
+                [750, 90],
+                [150, 150],
+                [280, 160],
+                [400, 140],
+                [520, 170],
+                [640, 140],
               ].map(([x, y], i) => (
                 <g key={i}>
                   <circle cx={x} cy={y} r="18" fill="url(#nodeGlow)" />
-                  <circle cx={x} cy={y} r="5" fill="var(--accent-blue)" opacity="0.7" />
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="5"
+                    fill="var(--accent-blue)"
+                    opacity="0.7"
+                  />
                 </g>
               ))}
 
               {[
-                [100, 80, 200, 40], [200, 40, 320, 100], [320, 100, 450, 60],
-                [450, 60, 560, 120], [560, 120, 680, 50], [680, 50, 750, 90],
-                [100, 80, 150, 150], [200, 40, 280, 160], [320, 100, 280, 160],
-                [450, 60, 400, 140], [560, 120, 520, 170], [680, 50, 640, 140],
-                [280, 160, 400, 140], [400, 140, 520, 170], [520, 170, 640, 140],
+                [100, 80, 200, 40],
+                [200, 40, 320, 100],
+                [320, 100, 450, 60],
+                [450, 60, 560, 120],
+                [560, 120, 680, 50],
+                [680, 50, 750, 90],
+                [100, 80, 150, 150],
+                [200, 40, 280, 160],
+                [320, 100, 280, 160],
+                [450, 60, 400, 140],
+                [560, 120, 520, 170],
+                [680, 50, 640, 140],
+                [280, 160, 400, 140],
+                [400, 140, 520, 170],
+                [520, 170, 640, 140],
               ].map(([x1, y1, x2, y2], i) => (
                 <line
                   key={i}
@@ -251,7 +366,9 @@ const computedStats = {
           </div>
 
           <h1 className="hero-title">코딩테스트 플랫폼</h1>
-          <p className="hero-subtitle">팀 내부 코딩테스트 · 알고리즘 역량 평가</p>
+          <p className="hero-subtitle">
+            팀 내부 코딩테스트 · 알고리즘 역량 평가
+          </p>
         </div>
       </section>
 
@@ -261,9 +378,7 @@ const computedStats = {
             <h3 className="sidebar-heading">진행 현황</h3>
 
             <div className="progress-item">
-              <span className="progress-label">
-                완료 시험
-              </span>
+              <span className="progress-label">완료 시험</span>
 
               <span className="progress-value">
                 <span className="progress-solved">
@@ -272,9 +387,7 @@ const computedStats = {
 
                 <span className="progress-sep"> / </span>
 
-                <span>
-                  {computedStats.totalExams}
-                </span>
+                <span>{computedStats.totalExams}</span>
               </span>
             </div>
 
@@ -284,63 +397,63 @@ const computedStats = {
                 style={{
                   width: `${
                     computedStats.totalExams > 0
-                      ? (
-                          computedStats.completedExams /
-                          computedStats.totalExams
-                        ) * 100
+                      ? (computedStats.completedExams /
+                          computedStats.totalExams) *
+                        100
                       : 0
                   }%`,
                 }}
               />
             </div>
           </div>
-            <div className="sidebar-section">
-  <h3 className="sidebar-heading">통계</h3>
 
-  <div className="stats-summary">
-    <div className="stats-summary-item">
-      <div className="stats-summary-value">
-        {computedStats.completedExams}
-      </div>
-      <div className="stats-summary-label">
-        완료 시험
-      </div>
-    </div>
+          <div className="sidebar-section">
+            <h3 className="sidebar-heading">통계</h3>
 
-    <div className="stats-summary-item">
-      <div className="stats-summary-value">
-        {computedStats.inProgressExams}
-      </div>
-      <div className="stats-summary-label">
-        진행 중
-      </div>
-    </div>
+            <div className="stats-summary">
+              <div className="stats-summary-item">
+                <div className="stats-summary-value">
+                  {computedStats.completedExams}
+                </div>
+                <div className="stats-summary-label">완료 시험</div>
+              </div>
 
-    <div className="stats-summary-item">
-      <div className="stats-summary-value">
-        {computedStats.totalProblems}
-      </div>
-      <div className="stats-summary-label">
-        전체 문제
-      </div>
-    </div>
+              <div className="stats-summary-item">
+                <div className="stats-summary-value">
+                  {computedStats.inProgressExams}
+                </div>
+                <div className="stats-summary-label">진행 중</div>
+              </div>
 
-    <div className="stats-summary-item">
-      <div className="stats-summary-value">
-        {computedStats.totalSubmissions}
-      </div>
-      <div className="stats-summary-label">
-        전체 제출
-      </div>
-    </div>
-  </div>
-</div>
+              <div className="stats-summary-item">
+                <div className="stats-summary-value">
+                  {computedStats.totalProblems}
+                </div>
+                <div className="stats-summary-label">전체 문제</div>
+              </div>
+
+              <div className="stats-summary-item">
+                <div className="stats-summary-value">
+                  {computedStats.totalSubmissions}
+                </div>
+                <div className="stats-summary-label">전체 제출</div>
+              </div>
+            </div>
+          </div>
         </aside>
 
         <main className="problem-area">
           <div className="problem-toolbar">
             <div className="search-box">
-              <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                className="search-icon"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
@@ -362,41 +475,43 @@ const computedStats = {
                   onClick={() => setFilter(f)}
                 >
                   {f === 'all'
- 		 ? '전체'
-  		: f === 'solved'
- 		 ? '완료'
-  		: '미제출'}
+                    ? '전체'
+                    : f === 'solved'
+                    ? '완료'
+                    : '미제출'}
                 </button>
               ))}
             </div>
 
-            <span className="problem-count">{filteredCategories.length}개 시험</span>
+            <span className="problem-count">
+              {filteredCategories.length}개 시험
+            </span>
 
-<button
-  type="button"
-  className={`refresh-btn ${isRefreshing ? 'spinning' : ''}`}
-  onClick={handleRefresh}
-  disabled={isRefreshing}
-  title="새로고침"
->
-  <svg
-    className="refresh-icon"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-  >
-    <path d="M21 2v6h-6" />
-    <path d="M3 11a9 9 0 0 1 15.55-5.36L21 8" />
-    <path d="M3 22v-6h6" />
-    <path d="M21 13a9 9 0 0 1-15.55 5.36L3 16" />
-  </svg>
-</button>
+            <button
+              type="button"
+              className={`refresh-btn ${isRefreshing ? 'spinning' : ''}`}
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              title="새로고침"
+            >
+              <svg
+                className="refresh-icon"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M21 2v6h-6" />
+                <path d="M3 11a9 9 0 0 1 15.55-5.36L21 8" />
+                <path d="M3 22v-6h6" />
+                <path d="M21 13a9 9 0 0 1-15.55 5.36L3 16" />
+              </svg>
+            </button>
           </div>
 
-                    <div className="problem-list">
+          <div className="problem-list">
             {filteredCategories.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-icon">🔍</div>
@@ -405,7 +520,7 @@ const computedStats = {
             ) : (
               filteredCategories.map((cat) => {
                 const isTutorialGuide = cat.isTutorialGuide === true;
-		const isExamMonitorGuide = cat.isExamMonitorGuide === true;
+                const isExamMonitorGuide = cat.isExamMonitorGuide === true;
 
                 const stat = categoryStats.find(
                   (c) => String(c.id) === String(cat.id)
@@ -414,18 +529,18 @@ const computedStats = {
                 return (
                   <div
                     key={cat.id}
-className={`problem-item ${
-  isTutorialGuide ? 'tutorial-guide-item' : ''
-} ${
-  isExamMonitorGuide ? 'monitor-guide-item' : ''
-}`}
-onClick={() =>
-  isTutorialGuide
-    ? navigate('/tutorial')
-    : isExamMonitorGuide
-    ? navigate('/admin/exam-monitor')
-    : navigate(`/exam/${cat.id}`)
-}
+                    className={`problem-item ${
+                      isTutorialGuide ? 'tutorial-guide-item' : ''
+                    } ${
+                      isExamMonitorGuide ? 'monitor-guide-item' : ''
+                    }`}
+                    onClick={() =>
+                      isTutorialGuide
+                        ? navigate('/tutorial')
+                        : isExamMonitorGuide
+                        ? navigate('/admin/exam-monitor')
+                        : navigate(`/exam/${cat.id}`)
+                    }
                   >
                     <div className="problem-left">
                       <span className="problem-title">
@@ -437,48 +552,62 @@ onClick={() =>
                           </span>
                         )}
 
-                        {!isTutorialGuide && stat?.completed && (
-                          <span className="completed-badge">
-                            ✓ 완료
+                        {isExamMonitorGuide && (
+                          <span className="monitor-only-badge">
+                            관리자 전용
                           </span>
                         )}
+
+                        {!isTutorialGuide &&
+                          !isExamMonitorGuide &&
+                          stat?.completed && (
+                            <span className="completed-badge">
+                              ✓ 완료
+                            </span>
+                          )}
                       </span>
 
-{isTutorialGuide ? (
-  <>
-    <div className="category-progress-text">
-      문제 생성, 테스트케이스 관리, 객관식 출제, 결과 분석 사용법 안내
-    </div>
-
-    <div className="tutorial-guide-desc">
-      클릭하면 관리자용 사이트 사용 방법을 확인할 수 있습니다.
-    </div>
-  </>
-) : isExamMonitorGuide ? (
-  <>
-    <div className="category-progress-text">
-      시험 폴더별 시작/종료 통제와 학생 이탈 알림 확인
-    </div>
-
-    <div className="tutorial-guide-desc">
-      클릭하면 시험 운영 관리 화면으로 이동합니다.
-    </div>
-  </>
-) : (
+                      {isTutorialGuide ? (
                         <>
                           <div className="category-progress-text">
-                            {stat?.solvedCount ?? 0} / {stat?.totalProblems ?? 0} 문제 완료
+                            문제 생성, 테스트케이스 관리, 객관식 출제, 결과 분석 사용법 안내
+                          </div>
+
+                          <div className="tutorial-guide-desc">
+                            클릭하면 관리자용 사이트 사용 방법을 확인할 수 있습니다.
+                          </div>
+                        </>
+                      ) : isExamMonitorGuide ? (
+                        <>
+                          <div className="category-progress-text">
+                            시험 폴더별 시작/종료 통제와 학생 이탈 알림 확인
+                          </div>
+
+                          <div className="tutorial-guide-desc">
+                            클릭하면 시험 운영 관리 화면으로 이동합니다.
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="category-progress-text">
+                            완료율 {stat?.progressRate ?? 0}%
+                            <span className="category-progress-detail">
+                              {' '}
+                              · 전체 {stat?.totalProblems ?? 0}문제
+                              {stat?.codingTotal > 0
+                                ? ` · 코딩 ${stat.codingTotal}문제`
+                                : ''}
+                              {stat?.objectiveTotal > 0
+                                ? ` · 객관식 ${stat.objectiveTotal}문제`
+                                : ''}
+                            </span>
                           </div>
 
                           <div className="category-progress-bar">
                             <div
                               className="category-progress-fill"
                               style={{
-                                width: `${
-                                  stat?.totalProblems > 0
-                                    ? (stat.solvedCount / stat.totalProblems) * 100
-                                    : 0
-                                }%`,
+                                width: `${stat?.progressRate ?? 0}%`,
                               }}
                             />
                           </div>
@@ -489,18 +618,18 @@ onClick={() =>
                     <div className="problem-right">
                       <span
                         className={`difficulty-badge ${
-  			isTutorialGuide
-    			? 'tutorial-start-badge'
-    			: isExamMonitorGuide
-    			? 'monitor-start-badge'
-    			: 'tag-easy'
-			}`}
+                          isTutorialGuide
+                            ? 'tutorial-start-badge'
+                            : isExamMonitorGuide
+                            ? 'monitor-start-badge'
+                            : 'tag-easy'
+                        }`}
                       >
                         {isTutorialGuide
-  			? '사용법 보기'
-  			: isExamMonitorGuide
-  			? '운영 관리'
-  			: '시험 시작'}
+                          ? '사용법 보기'
+                          : isExamMonitorGuide
+                          ? '운영 관리'
+                          : '시험 시작'}
                       </span>
                     </div>
                   </div>

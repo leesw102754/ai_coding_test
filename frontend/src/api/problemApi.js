@@ -202,3 +202,13 @@ export const updateObjectiveQuestionOrder = async (items) => {
   const res = await API.patch('/objective/questions/reorder/bulk', items);
   return res.data;
 };
+
+export const getExamWarnings = async () => {
+  const res = await API.get('/exams/warnings');
+  return res.data;
+};
+
+export const clearExamWarnings = async () => {
+  const res = await API.delete('/exams/warnings');
+  return res.data;
+};
