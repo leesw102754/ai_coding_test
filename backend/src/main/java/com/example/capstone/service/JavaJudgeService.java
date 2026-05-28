@@ -9,6 +9,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -25,6 +26,7 @@ public class JavaJudgeService {
         result.setMemoryKb(0);
 
         Path tempDir = null;
+        List<FailedCase> failedCases = new ArrayList<>();
 
         try {
             tempDir = Files.createTempDirectory("java_submission_");
@@ -190,9 +192,22 @@ public class JavaJudgeService {
                     result.setErrorTypeHint("logic_error");
                     failedCase.setReason("출력이 정답과 다름");
 
-                    result.setFailedCases(List.of(failedCase));
-                    return result;
+                    failedCases.add(failedCase);
+
+                    if (failedCases.size() >= 3) {
+                        result.setFailedCases(failedCases);
+                        return result;
+                    }
+
+                    continue;
                 }
+            }
+
+            if (!failedCases.isEmpty()) {
+                result.setStatus("wrong_answer");
+                result.setErrorTypeHint("logic_error");
+                result.setFailedCases(failedCases);
+                return result;
             }
 
             result.setStatus("accepted");

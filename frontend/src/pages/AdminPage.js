@@ -7,7 +7,7 @@ export default function AdminPage() {
   return (
     <div className="admin-page">
       <div className="admin-page-inner">
-        <h2 className="admin-title">문제 출제 관리</h2>
+        <h2 className="admin-title">관리자 메뉴</h2>
         <p className="admin-subtitle">출제할 문제 유형을 선택하세요.</p>
 
         <div className="admin-type-list">

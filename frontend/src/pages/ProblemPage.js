@@ -448,8 +448,8 @@ if (!hasWrittenSolution(code)) {
         testCases.map((tc, i) => ({
           id: i + 1,
           input: tc.input,
-          expected: tc.expectedOutput || tc.expected,
-          actual: tc.expectedOutput || tc.expected,
+          expected: tc.expectedOutput || tc.expected || tc.output || '',
+          actual: tc.expectedOutput || tc.expected || tc.output || '',
           passed: true,
           reason: '통과',
         }))
@@ -475,8 +475,10 @@ if (!hasWrittenSolution(code)) {
         return {
           id: i + 1,
           input: tc.input,
-          expected: tc.expectedOutput || tc.expected,
-          actual: failed ? failed.actual_output || failed.actualOutput || '' : '-',
+          expected: tc.expectedOutput || tc.expected || tc.output || '',
+          actual: failed
+ 	 ? failed.actual_output || failed.actualOutput || failed.actual || ''
+  	 : '-',
           passed: failed ? false : 'unknown',
           reason: failed
   	  ? `${errorInfo.label} - ${failed.reason || '테스트케이스 실패'}`

@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -121,14 +122,25 @@ public class CppJudgeService {
                     failedCase.setReason("출력이 정답과 다름");
 
                     failedCases.add(failedCase);
-                    result.setFailedCases(failedCases);
 
-                    cleanup(tempDir);
-                    return result;
+                    if (failedCases.size() >= 3) {
+                        result.setFailedCases(failedCases);
+                        cleanup(tempDir);
+                        return result;
+                    }
+
+                    continue;
                 }
             }
 
             cleanup(tempDir);
+
+            if (!failedCases.isEmpty()) {
+                result.setStatus("wrong_answer");
+                result.setErrorTypeHint("logic_error");
+                result.setFailedCases(failedCases);
+                return result;
+            }
 
             result.setStatus("accepted");
             result.setErrorTypeHint(null);
@@ -162,7 +174,7 @@ public class CppJudgeService {
 
         try {
             Files.walk(tempDir)
-                    .sorted((a, b) -> b.compareTo(a))
+                    .sorted(Comparator.reverseOrder())
                     .forEach(path -> {
                         try {
                             Files.deleteIfExists(path);

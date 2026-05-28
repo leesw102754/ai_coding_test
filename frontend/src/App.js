@@ -14,6 +14,7 @@ import AdminObjectivePage from './pages/AdminObjectivePage';
 import AdminCodingPage from './pages/AdminCodingPage';
 import AdminResultPage from './pages/AdminResultPage';
 import AdminExamManagePage from './pages/AdminExamManagePage';
+import AdminUserManagePage from './pages/AdminUserManagePage';
 import ResultsPage from './pages/ResultsPage';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -74,6 +75,7 @@ function AppRoutes() {
             <Route path="/admin/coding" element={<AdminCodingPage />} />
             <Route path="/admin/results" element={<AdminResultPage />} />
             <Route path="/admin/exams" element={<AdminExamManagePage />} />
+            <Route path="/admin/users" element={<AdminUserManagePage />} />
 	    <Route path="/admin/exam-monitor" element={<AdminExamMonitorPage />} />
 	    <Route path="/tutorial" element={<TutorialPage />} />
           </>

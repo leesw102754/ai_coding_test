@@ -86,9 +86,21 @@ public class JavaScriptJudgeService {
                     failedCase.setReason("출력이 정답과 다름");
 
                     failedCases.add(failedCase);
-                    result.setFailedCases(failedCases);
-                    return result;
+
+                    if (failedCases.size() >= 3) {
+                        result.setFailedCases(failedCases);
+                        return result;
+                    }
+
+                    continue;
                 }
+            }
+
+            if (!failedCases.isEmpty()) {
+                result.setStatus("wrong_answer");
+                result.setErrorTypeHint("logic_error");
+                result.setFailedCases(failedCases);
+                return result;
             }
 
             result.setStatus("accepted");

@@ -22,9 +22,10 @@ public class PythonJudgeService {
         result.setMemoryKb(0);
 
         List<FailedCase> failedCases = new ArrayList<>();
+        Path tempFile = null;
 
         try {
-            Path tempFile = Files.createTempFile("submission_", ".py");
+            tempFile = Files.createTempFile("submission_", ".py");
             Files.writeString(tempFile, code, StandardCharsets.UTF_8);
 
             for (TestCase tc : testCases) {
@@ -70,8 +71,6 @@ public class PythonJudgeService {
 
                     failedCases.add(failedCase);
                     result.setFailedCases(failedCases);
-
-                    Files.deleteIfExists(tempFile);
                     return result;
                 }
 
@@ -84,14 +83,22 @@ public class PythonJudgeService {
                     failedCase.setReason("출력이 정답과 다름");
 
                     failedCases.add(failedCase);
-                    result.setFailedCases(failedCases);
 
-                    Files.deleteIfExists(tempFile);
-                    return result;
+                    if (failedCases.size() >= 3) {
+                        result.setFailedCases(failedCases);
+                        return result;
+                    }
+
+                    continue;
                 }
             }
 
-            Files.deleteIfExists(tempFile);
+            if (!failedCases.isEmpty()) {
+                result.setStatus("wrong_answer");
+                result.setErrorTypeHint("logic_error");
+                result.setFailedCases(failedCases);
+                return result;
+            }
 
             result.setStatus("accepted");
             result.setErrorTypeHint(null);
@@ -111,6 +118,13 @@ public class PythonJudgeService {
             result.setStderr(e.getMessage());
             result.setFailedCases(List.of(failedCase));
             return result;
+        } finally {
+            if (tempFile != null) {
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (Exception ignored) {
+                }
+            }
         }
     }
 

@@ -156,6 +156,17 @@ export default function Header() {
                         <span className="dropdown-btn-icon">📝</span>
                         <span>전체 문제 관리</span>
                       </button>
+
+                      <button
+                        className="dropdown-btn"
+                        onClick={() => {
+                          setOpenModal(false);
+                          navigate('/admin/users');
+                        }}
+                      >
+                        <span className="dropdown-btn-icon">👥</span>
+                        <span>학생 관리</span>
+                      </button>
                     </>
                   ) : (
                     <button
